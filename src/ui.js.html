@@ -1,0 +1,880 @@
+<script>
+/**
+ * 外出記入板 フロントエンドJS
+ * A+C+B 保存方式実装
+ * A: Draft (localStorage即座保存)
+ * C: ChangeQueue (変更キュー)
+ * B: Backend (遅延サーバー保存)
+ */
+
+// ========================================
+// A層: DraftStore (ローカル保存)
+// ========================================
+const DraftStore = (function() {
+  const STORAGE_KEY_PREFIX = 'outingBoard_draft_';
+  const STORAGE_VERSION = 'v1';
+
+  function getStorageKey(date) {
+    return `${STORAGE_KEY_PREFIX}${STORAGE_VERSION}_${date}`;
+  }
+
+  function saveDraft(date, rowIndex, fieldName, value) {
+    try {
+      const key = getStorageKey(date);
+      const drafts = loadAllDrafts(date);
+
+      if (!drafts[rowIndex]) {
+        drafts[rowIndex] = {};
+      }
+
+      drafts[rowIndex][fieldName] = value;
+      drafts[rowIndex]._timestamp = Date.now();
+
+      localStorage.setItem(key, JSON.stringify(drafts));
+      return true;
+    } catch (e) {
+      console.error('Failed to save draft:', e);
+      return false;
+    }
+  }
+
+  function loadAllDrafts(date) {
+    try {
+      const key = getStorageKey(date);
+      const data = localStorage.getItem(key);
+      return data ? JSON.parse(data) : {};
+    } catch (e) {
+      console.error('Failed to load drafts:', e);
+      return {};
+    }
+  }
+
+  function loadRowDraft(date, rowIndex) {
+    const drafts = loadAllDrafts(date);
+    return drafts[rowIndex] || null;
+  }
+
+  function clearDraft(date, rowIndex) {
+    try {
+      const key = getStorageKey(date);
+      const drafts = loadAllDrafts(date);
+      delete drafts[rowIndex];
+
+      if (Object.keys(drafts).length === 0) {
+        localStorage.removeItem(key);
+      } else {
+        localStorage.setItem(key, JSON.stringify(drafts));
+      }
+      return true;
+    } catch (e) {
+      console.error('Failed to clear draft:', e);
+      return false;
+    }
+  }
+
+  function clearAllDrafts(date) {
+    try {
+      const key = getStorageKey(date);
+      localStorage.removeItem(key);
+      return true;
+    } catch (e) {
+      console.error('Failed to clear all drafts:', e);
+      return false;
+    }
+  }
+
+  function hasDrafts(date) {
+    const drafts = loadAllDrafts(date);
+    return Object.keys(drafts).length > 0;
+  }
+
+  return {
+    saveDraft,
+    loadAllDrafts,
+    loadRowDraft,
+    clearDraft,
+    clearAllDrafts,
+    hasDrafts
+  };
+})();
+
+// ========================================
+// C層: ChangeQueue (変更キュー)
+// ========================================
+const ChangeQueue = (function() {
+  let queue = {}; // {rowIndex: {destination: 'xxx', startTime: 'xxx', ...}}
+  let pendingSave = null;
+
+  function addChange(rowIndex, fieldName, value) {
+    if (!queue[rowIndex]) {
+      queue[rowIndex] = { rowIndex };
+    }
+    queue[rowIndex][fieldName] = value;
+  }
+
+  function getChanges() {
+    return Object.values(queue);
+  }
+
+  function hasChanges() {
+    return Object.keys(queue).length > 0;
+  }
+
+  function clearChanges() {
+    queue = {};
+  }
+
+  function clearRowChanges(rowIndex) {
+    delete queue[rowIndex];
+  }
+
+  function setPendingSave(timeoutId) {
+    if (pendingSave) {
+      clearTimeout(pendingSave);
+    }
+    pendingSave = timeoutId;
+  }
+
+  function clearPendingSave() {
+    if (pendingSave) {
+      clearTimeout(pendingSave);
+      pendingSave = null;
+    }
+  }
+
+  return {
+    addChange,
+    getChanges,
+    hasChanges,
+    clearChanges,
+    clearRowChanges,
+    setPendingSave,
+    clearPendingSave
+  };
+})();
+
+// ========================================
+// SaveManager: A+C+B 統合管理
+// ========================================
+const SaveManager = (function() {
+  const AUTO_SAVE_DELAY = 3000; // 3秒
+  const PERIODIC_SAVE_INTERVAL = 30000; // 30秒
+  let periodicSaveTimer = null;
+  let saveStatus = 'saved'; // 'saved' | 'saving' | 'unsaved' | 'error' | 'offline'
+  let isSaving = false;
+
+  function init() {
+    // 定期保存タイマー開始
+    startPeriodicSave();
+
+    // ページ離脱時に保存
+    window.addEventListener('beforeunload', function(e) {
+      if (ChangeQueue.hasChanges()) {
+        flushChanges();
+        // ブラウザに警告を表示
+        e.preventDefault();
+        e.returnValue = '保存されていない変更があります';
+      }
+    });
+
+    // オンライン/オフライン検出
+    window.addEventListener('online', function() {
+      console.log('オンラインに復帰しました');
+      updateSaveStatus('unsaved');
+      if (ChangeQueue.hasChanges()) {
+        scheduleSave();
+      }
+    });
+
+    window.addEventListener('offline', function() {
+      console.log('オフラインになりました');
+      updateSaveStatus('offline');
+    });
+  }
+
+  function startPeriodicSave() {
+    if (periodicSaveTimer) {
+      clearInterval(periodicSaveTimer);
+    }
+    periodicSaveTimer = setInterval(function() {
+      if (ChangeQueue.hasChanges() && !isSaving) {
+        console.log('定期保存を実行します');
+        flushChanges();
+      }
+    }, PERIODIC_SAVE_INTERVAL);
+  }
+
+  function onInputChange(date, rowIndex, fieldName, value) {
+    // A層: 即座にlocalStorageに保存
+    DraftStore.saveDraft(date, rowIndex, fieldName, value);
+
+    // C層: 変更キューに追加
+    ChangeQueue.addChange(rowIndex, fieldName, value);
+
+    // 保存スケジュール
+    updateSaveStatus('unsaved');
+    scheduleSave();
+  }
+
+  function scheduleSave() {
+    // 既存のタイマーをキャンセル
+    ChangeQueue.clearPendingSave();
+
+    // 新しいタイマーをセット（デバウンス）
+    const timeoutId = setTimeout(function() {
+      flushChanges();
+    }, AUTO_SAVE_DELAY);
+
+    ChangeQueue.setPendingSave(timeoutId);
+  }
+
+  function flushChanges() {
+    if (!ChangeQueue.hasChanges() || isSaving) {
+      return;
+    }
+
+    // オフライン時は保存しない
+    if (!navigator.onLine) {
+      updateSaveStatus('offline');
+      return;
+    }
+
+    isSaving = true;
+    updateSaveStatus('saving');
+
+    const changes = ChangeQueue.getChanges();
+    const date = window.currentDate; // グローバルから取得
+
+    console.log('サーバーに保存します:', changes);
+
+    // B層: サーバーに一括送信
+    google.script.run
+      .withSuccessHandler(function(results) {
+        onSaveSuccess(results);
+      })
+      .withFailureHandler(function(error) {
+        onSaveError(error);
+      })
+      .api_applyPatch(date, changes);
+  }
+
+  function onSaveSuccess(results) {
+    console.log('保存成功:', results);
+    isSaving = false;
+
+    // 保存成功した行のドラフトをクリア
+    results.forEach(function(result) {
+      if (result.success) {
+        DraftStore.clearDraft(window.currentDate, result.rowIndex);
+        ChangeQueue.clearRowChanges(result.rowIndex);
+
+        // UI更新
+        const tr = document.querySelector(`tr[data-row-index="${result.rowIndex}"]`);
+        if (tr && result.row) {
+          window.updateRowDisplay(tr, result.row);
+        }
+      }
+    });
+
+    // すべて成功したらキューをクリア
+    if (results.every(r => r.success)) {
+      ChangeQueue.clearChanges();
+      updateSaveStatus('saved');
+    } else {
+      updateSaveStatus('error');
+    }
+  }
+
+  function onSaveError(error) {
+    console.error('保存エラー:', error);
+    isSaving = false;
+    updateSaveStatus('error');
+
+    // リトライ（30秒後）
+    setTimeout(function() {
+      if (ChangeQueue.hasChanges()) {
+        flushChanges();
+      }
+    }, 30000);
+  }
+
+  function updateSaveStatus(status) {
+    saveStatus = status;
+
+    const statusEl = document.getElementById('saveStatus');
+    if (!statusEl) return;
+
+    const messages = {
+      'saved': '保存済み',
+      'saving': '保存中...',
+      'unsaved': '未保存',
+      'error': '保存失敗',
+      'offline': 'オフライン'
+    };
+
+    const classes = {
+      'saved': 'save-status-saved',
+      'saving': 'save-status-saving',
+      'unsaved': 'save-status-unsaved',
+      'error': 'save-status-error',
+      'offline': 'save-status-offline'
+    };
+
+    statusEl.textContent = messages[status] || '';
+    statusEl.className = 'save-status ' + (classes[status] || '');
+  }
+
+  function manualSave() {
+    if (ChangeQueue.hasChanges()) {
+      ChangeQueue.clearPendingSave();
+      flushChanges();
+    }
+  }
+
+  return {
+    init,
+    onInputChange,
+    manualSave,
+    flushChanges
+  };
+})();
+
+// ========================================
+// メインアプリケーション
+// ========================================
+(function() {
+  'use strict';
+
+  // ========================================
+  // 状態管理
+  // ========================================
+  let currentDate = INITIAL_DATE;
+  let currentData = null;
+
+  // ========================================
+  // DOM要素
+  // ========================================
+  const elements = {
+    dateInput: null,
+    reloadBtn: null,
+    clearAllBtn: null,
+    statusMessage: null,
+    loading: null,
+    tableContainer: null,
+    tableBody: null
+  };
+
+  // ========================================
+  // 初期化
+  // ========================================
+  document.addEventListener('DOMContentLoaded', init);
+
+  function init() {
+    // DOM要素を取得
+    elements.dateInput = document.getElementById('dateInput');
+    elements.reloadBtn = document.getElementById('reloadBtn');
+    elements.clearAllBtn = document.getElementById('clearAllBtn');
+    elements.statusMessage = document.getElementById('statusMessage');
+    elements.loading = document.getElementById('loading');
+    elements.tableContainer = document.getElementById('tableContainer');
+    elements.tableBody = document.getElementById('tableBody');
+
+    // 日付入力を初期化
+    elements.dateInput.value = currentDate;
+
+    // グローバルアクセス用
+    window.currentDate = currentDate;
+    window.updateRowDisplay = updateRowDisplay;
+
+    // イベントリスナー
+    elements.dateInput.addEventListener('change', onDateChange);
+    elements.reloadBtn.addEventListener('click', loadData);
+    elements.clearAllBtn.addEventListener('click', clearAllRows);
+
+    // A+C+B SaveManager初期化
+    SaveManager.init();
+
+    // 初期データ読み込み
+    loadData();
+  }
+
+  // ========================================
+  // データ読み込み
+  // ========================================
+  function loadData() {
+    showLoading(true);
+    hideStatus();
+
+    google.script.run
+      .withSuccessHandler(onDataLoaded)
+      .withFailureHandler(onError)
+      .getDayData(currentDate);
+  }
+
+  function onDataLoaded(data) {
+    currentData = data;
+    renderTable(data.rows);
+
+    // クラッシュリカバリ: ドラフトを復元
+    restoreDrafts(data.rows);
+
+    showLoading(false);
+    showStatus('データを読み込みました', 'success', 2000);
+  }
+
+  // ========================================
+  // クラッシュリカバリ: ドラフト復元
+  // ========================================
+  function restoreDrafts(rows) {
+    const drafts = DraftStore.loadAllDrafts(currentDate);
+
+    rows.forEach(function(row) {
+      const draft = drafts[row.rowIndex];
+      if (draft) {
+        const tr = elements.tableBody.querySelector(`tr[data-row-index="${row.rowIndex}"]`);
+        if (tr) {
+          const inputs = tr.querySelectorAll('input');
+
+          // ドラフトの値で上書き
+          if (draft.destination !== undefined) {
+            inputs[0].value = draft.destination;
+            ChangeQueue.addChange(row.rowIndex, 'destination', draft.destination);
+          }
+          if (draft.startTime !== undefined) {
+            inputs[1].value = draft.startTime;
+            ChangeQueue.addChange(row.rowIndex, 'startTime', draft.startTime);
+          }
+          if (draft.endTime !== undefined) {
+            inputs[2].value = draft.endTime;
+            ChangeQueue.addChange(row.rowIndex, 'endTime', draft.endTime);
+          }
+          if (draft.note !== undefined) {
+            inputs[3].value = draft.note;
+            ChangeQueue.addChange(row.rowIndex, 'note', draft.note);
+          }
+
+          console.log(`ドラフトを復元しました: 行${row.rowIndex}`);
+        }
+      }
+    });
+
+    // ドラフトがある場合は自動保存をスケジュール
+    if (ChangeQueue.hasChanges()) {
+      SaveManager.flushChanges();
+    }
+  }
+
+  // ========================================
+  // 日付変更
+  // ========================================
+  function onDateChange(e) {
+    currentDate = e.target.value;
+    window.currentDate = currentDate; // グローバル更新
+    loadData();
+  }
+
+  // ========================================
+  // テーブル描画
+  // ========================================
+  function renderTable(rows) {
+    elements.tableBody.innerHTML = '';
+
+    rows.forEach(row => {
+      const tr = createTableRow(row);
+      // 名前がない行は非表示（ホワイトボードに合わせる）
+      if (tr) {
+        elements.tableBody.appendChild(tr);
+      }
+    });
+
+    elements.tableContainer.classList.remove('hidden');
+    elements.tableContainer.classList.add('fade-in');
+  }
+
+  function createTableRow(row) {
+    // 名前がない行はスキップ（ホワイトボードに合わせる）
+    if (!row.name || row.name.trim() === '') {
+      return null;
+    }
+
+    const tr = document.createElement('tr');
+    tr.dataset.rowIndex = row.rowIndex;
+
+    // ステータスに応じたクラス
+    tr.className = getRowClass(row);
+
+    // 名前セル（編集不可）
+    const nameTd = document.createElement('td');
+    nameTd.className = 'name-cell';
+    nameTd.textContent = row.name || '';
+    tr.appendChild(nameTd);
+
+    // 行先（プレースホルダなし、cell-input + destination）
+    tr.appendChild(createInputCell('destination', row.destination, '', 'destination'));
+
+    // 出社日（日付ピッカー、date-cell）
+    tr.appendChild(createDateInputCell('startTime', row.startTime, 'date-cell'));
+
+    // 帰社時刻（時刻入力、time-cell）
+    tr.appendChild(createTimeInputCell('endTime', row.endTime, 'time-cell'));
+
+    // 備考（プレースホルダなし、note-cell）
+    tr.appendChild(createInputCell('note', row.note, '', 'note-cell'));
+
+    // 操作ボタン（保存・クリア）
+    const actionTd = document.createElement('td');
+    actionTd.className = 'action-cell';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'save-btn';
+    saveBtn.textContent = '保存';
+    saveBtn.addEventListener('click', () => {
+      // A+C+B: 即座に保存（デバウンスをスキップ）
+      SaveManager.manualSave();
+    });
+    actionTd.appendChild(saveBtn);
+
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'clear-btn';
+    clearBtn.textContent = 'クリア';
+    clearBtn.addEventListener('click', () => clearRow(row.rowIndex));
+    actionTd.appendChild(clearBtn);
+
+    tr.appendChild(actionTd);
+
+    return tr;
+  }
+
+  function createInputCell(fieldName, value, placeholder, tdClass) {
+    const td = document.createElement('td');
+    if (tdClass) {
+      td.className = tdClass;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'cell-input' + (fieldName === 'destination' ? ' destination' : '');
+    input.name = fieldName;
+    input.value = value || '';
+    if (placeholder) {
+      input.placeholder = placeholder;
+    }
+
+    // A+C+B: 入力時に即座に保存（auto-save）
+    input.addEventListener('input', (e) => {
+      const row = e.target.closest('tr');
+      const rowIndex = parseInt(row.dataset.rowIndex);
+      SaveManager.onInputChange(currentDate, rowIndex, fieldName, e.target.value);
+    });
+
+    // Enterキーで即座に保存
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        SaveManager.manualSave();
+      }
+    });
+
+    td.appendChild(input);
+    return td;
+  }
+
+  function createDateInputCell(fieldName, value, tdClass) {
+    const td = document.createElement('td');
+    if (tdClass) {
+      td.className = tdClass;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'date';  // 日付ピッカー
+    input.className = 'cell-input';
+    input.name = fieldName;
+    input.value = value || '';
+
+    // A+C+B: 入力時に即座に保存（auto-save）
+    input.addEventListener('input', (e) => {
+      const row = e.target.closest('tr');
+      const rowIndex = parseInt(row.dataset.rowIndex);
+      SaveManager.onInputChange(currentDate, rowIndex, fieldName, e.target.value);
+    });
+
+    input.addEventListener('change', (e) => {
+      const row = e.target.closest('tr');
+      const rowIndex = parseInt(row.dataset.rowIndex);
+      SaveManager.onInputChange(currentDate, rowIndex, fieldName, e.target.value);
+    });
+
+    // Enterキーで即座に保存
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        SaveManager.manualSave();
+      }
+    });
+
+    td.appendChild(input);
+    return td;
+  }
+
+  function createTimeInputCell(fieldName, value, tdClass) {
+    const td = document.createElement('td');
+    if (tdClass) {
+      td.className = tdClass;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'time';  // タイムピッカー（プルダウン＋手動入力可能）
+    input.className = 'cell-input';
+    input.name = fieldName;
+    input.value = value || '';
+
+    // A+C+B: 入力時に即座に保存（auto-save）
+    input.addEventListener('input', (e) => {
+      const row = e.target.closest('tr');
+      const rowIndex = parseInt(row.dataset.rowIndex);
+      SaveManager.onInputChange(currentDate, rowIndex, fieldName, e.target.value);
+    });
+
+    input.addEventListener('change', (e) => {
+      const row = e.target.closest('tr');
+      const rowIndex = parseInt(row.dataset.rowIndex);
+      SaveManager.onInputChange(currentDate, rowIndex, fieldName, e.target.value);
+    });
+
+    // Enterキーで即座に保存
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        SaveManager.manualSave();
+      }
+    });
+
+    td.appendChild(input);
+    return td;
+  }
+
+  function getRowClass(row) {
+    // 名前がない行は空行
+    if (!row.name || row.name.trim() === '') {
+      return 'row-empty';
+    }
+
+    // 帰社時刻がある → 日帰り（緑色）
+    if (row.endTime && row.endTime.trim() !== '') {
+      return 'row-back';  // 緑色
+    }
+
+    // 出社日があって帰社時刻がない → 宿泊あり（黄色）
+    if (row.startTime && row.startTime.trim() !== '') {
+      return 'row-out';  // 黄色
+    }
+
+    // どちらもない → 通常
+    return 'row-none';
+  }
+
+  // ========================================
+  // 時刻入力の自動整形
+  // ========================================
+  function formatTimeInput(value) {
+    if (!value || value.trim() === '') {
+      return '';
+    }
+
+    const trimmed = value.trim();
+
+    // すでに正しい形式なら何もしない
+    if (/^([01]?\d|2[0-3]):[0-5]\d$/.test(trimmed)) {
+      // HH:MM形式に整形（1桁の時は0埋め）
+      const match = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+      if (match) {
+        const hours = match[1].padStart(2, '0');
+        const minutes = match[2];
+        return hours + ':' + minutes;
+      }
+      return trimmed;
+    }
+
+    // H:M形式（例: 9:5）を HH:MM に変換
+    const match = trimmed.match(/^(\d{1,2}):(\d{1,2})$/);
+    if (match) {
+      const hours = parseInt(match[1]);
+      const minutes = parseInt(match[2]);
+
+      // 時間のバリデーション
+      if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+        return hours.toString().padStart(2, '0') + ':' + minutes.toString().padStart(2, '0');
+      }
+    }
+
+    // 整形できない場合はそのまま返す（バリデーションエラーは保存時に出す）
+    return null;
+  }
+
+  // ========================================
+  // 全行クリア
+  // ========================================
+  function clearAllRows() {
+    if (!confirm('すべての行の情報をクリアしますか？（名前以外）\n\nこの操作は取り消せません。')) {
+      return;
+    }
+
+    const rows = elements.tableBody.querySelectorAll('tr');
+    if (rows.length === 0) {
+      showStatus('クリアする行がありません', 'info', 2000);
+      return;
+    }
+
+    // すべてクリアボタンを無効化
+    elements.clearAllBtn.disabled = true;
+    elements.clearAllBtn.textContent = 'クリア中...';
+
+    // A+C+B: すべての行の値をクリア
+    rows.forEach((tr) => {
+      const rowIndex = parseInt(tr.dataset.rowIndex);
+      const inputs = tr.querySelectorAll('input');
+
+      // 入力フィールドを空にする
+      inputs[0].value = '';  // 行先
+      inputs[1].value = '';  // 出社日
+      inputs[2].value = '';  // 帰社時刻
+      inputs[3].value = '';  // 備考
+
+      // A+C+B: 変更をキューに追加
+      SaveManager.onInputChange(currentDate, rowIndex, 'destination', '');
+      SaveManager.onInputChange(currentDate, rowIndex, 'startTime', '');
+      SaveManager.onInputChange(currentDate, rowIndex, 'endTime', '');
+      SaveManager.onInputChange(currentDate, rowIndex, 'note', '');
+    });
+
+    // 即座に保存
+    SaveManager.manualSave();
+
+    // ボタンを元に戻す
+    setTimeout(() => {
+      elements.clearAllBtn.disabled = false;
+      elements.clearAllBtn.textContent = 'すべてクリア';
+      showStatus('すべての行をクリアしました', 'success', 2000);
+    }, 1000);
+  }
+
+  // ========================================
+  // 行クリア
+  // ========================================
+  function clearRow(rowIndex) {
+    if (!confirm('この行の情報をクリアしますか？（名前以外）')) {
+      return;
+    }
+
+    const tr = elements.tableBody.querySelector(`tr[data-row-index="${rowIndex}"]`);
+    if (!tr) return;
+
+    // 入力フィールドを空にする
+    const inputs = tr.querySelectorAll('input');
+    inputs[0].value = '';  // 行先
+    inputs[1].value = '';  // 出社日
+    inputs[2].value = '';  // 帰社時刻
+    inputs[3].value = '';  // 備考
+
+    // A+C+B: 空の値で各フィールドを更新
+    SaveManager.onInputChange(currentDate, rowIndex, 'destination', '');
+    SaveManager.onInputChange(currentDate, rowIndex, 'startTime', '');
+    SaveManager.onInputChange(currentDate, rowIndex, 'endTime', '');
+    SaveManager.onInputChange(currentDate, rowIndex, 'note', '');
+
+    // 即座に保存
+    SaveManager.manualSave();
+  }
+
+  // ========================================
+  // 行表示更新（A+C+B SaveManagerから使用）
+  // ========================================
+  function updateRowDisplay(tr, row) {
+    // 入力値を更新
+    const inputs = tr.querySelectorAll('input');
+    inputs[0].value = row.destination || '';
+    inputs[1].value = row.startTime || '';
+    inputs[2].value = row.endTime || '';
+    inputs[3].value = row.note || '';
+
+    // クラスを更新
+    tr.className = getRowClass(row);
+  }
+
+  // ========================================
+  // クライアント側バリデーション
+  // ========================================
+  function validatePayload(payload) {
+    const errors = [];
+
+    // 出社日の形式チェック（YYYY-MM-DD）
+    if (payload.startTime && !isValidDateFormat(payload.startTime)) {
+      errors.push('出社日の形式が不正です（例: 2025-12-25）');
+    }
+
+    // 帰社時刻の形式チェック（HH:MM）
+    if (payload.endTime && !isValidTimeFormat(payload.endTime)) {
+      errors.push('帰社時刻の形式が不正です（例: 17:30 または 09:00）');
+    }
+
+    if (errors.length > 0) {
+      return { valid: false, message: errors.join('\n') };
+    }
+    return { valid: true, message: '' };
+  }
+
+  function isValidDateFormat(dateStr) {
+    if (!dateStr || dateStr.trim() === '') return true;
+    // YYYY-MM-DD形式をチェック
+    const pattern = /^\d{4}-\d{2}-\d{2}$/;
+    if (!pattern.test(dateStr.trim())) return false;
+
+    // 実際に有効な日付かチェック
+    const date = new Date(dateStr);
+    return !isNaN(date.getTime());
+  }
+
+  function isValidTimeFormat(timeStr) {
+    if (!timeStr || timeStr.trim() === '') return true;
+    const pattern = /^([0-9]|0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$/;
+    return pattern.test(timeStr.trim());
+  }
+
+  function normalizeTime(timeStr) {
+    if (!timeStr) return '';
+    const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) return timeStr;
+    return match[1].padStart(2, '0') + ':' + match[2];
+  }
+
+  // ========================================
+  // UI ヘルパー
+  // ========================================
+  function showLoading(show) {
+    if (show) {
+      elements.loading.classList.remove('hidden');
+      elements.tableContainer.classList.add('hidden');
+    } else {
+      elements.loading.classList.add('hidden');
+    }
+  }
+
+  function showStatus(message, type, autoHideMs) {
+    elements.statusMessage.textContent = message;
+    elements.statusMessage.className = 'status-message ' + type;
+    elements.statusMessage.classList.remove('hidden');
+
+    if (autoHideMs) {
+      setTimeout(hideStatus, autoHideMs);
+    }
+  }
+
+  function hideStatus() {
+    elements.statusMessage.classList.add('hidden');
+  }
+
+  function onError(error) {
+    showLoading(false);
+    showStatus('エラー: ' + error.message, 'error');
+    console.error('Error:', error);
+  }
+
+})();
+</script>

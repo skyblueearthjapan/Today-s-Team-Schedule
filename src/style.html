@@ -1,0 +1,562 @@
+<style>
+/* ========================================
+   全体
+   ======================================== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  background: #f4f7fb;
+  color: #0b1f3a;
+  line-height: 1.6;
+}
+
+.container {
+  max-width: 100%;
+  margin: 0;
+}
+
+/* ========================================
+   ヘッダー
+   ======================================== */
+.header {
+  background: #244a73;
+  color: #fff;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lineworks-logo {
+  font-family: 'Arial Black', 'Helvetica Neue', Arial, sans-serif;
+  font-weight: 900;
+  color: #ffffff;
+  font-size: 20px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.title {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: .04em;
+  font-weight: 600;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.portal-link {
+  display: inline-block;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #1f9d55;
+  background: #1f9d55;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.portal-link:hover {
+  background: #177a43;
+  border-color: #177a43;
+  color: #fff;
+  text-decoration: none;
+}
+
+.date-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.date-picker label {
+  font-size: 0.9rem;
+}
+
+.date-picker input[type="date"] {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+/* ========================================
+   保存ステータス
+   ======================================== */
+.save-status {
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+}
+
+.save-status-saved {
+  background-color: rgba(76, 175, 80, 0.2);
+  color: #c8e6c9;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.save-status-saving {
+  background-color: rgba(33, 150, 243, 0.2);
+  color: #bbdefb;
+  border: 1px solid rgba(33, 150, 243, 0.3);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.save-status-unsaved {
+  background-color: rgba(255, 152, 0, 0.2);
+  color: #ffe0b2;
+  border: 1px solid rgba(255, 152, 0, 0.3);
+}
+
+.save-status-error {
+  background-color: rgba(244, 67, 54, 0.2);
+  color: #ffcdd2;
+  border: 1px solid rgba(244, 67, 54, 0.3);
+}
+
+.save-status-offline {
+  background-color: rgba(158, 158, 158, 0.2);
+  color: #e0e0e0;
+  border: 1px solid rgba(158, 158, 158, 0.3);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* ========================================
+   ボタン
+   ======================================== */
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background-color: rgba(255,255,255,0.2);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.3);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: rgba(255,255,255,0.3);
+}
+
+.btn-danger {
+  background-color: #d9534f;
+  color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: #c9302c;
+}
+
+.btn-icon {
+  font-size: 1.1em;
+}
+
+/* ========================================
+   ステータスメッセージ
+   ======================================== */
+.status-message {
+  padding: 12px 20px;
+  margin: 0;
+  font-size: 0.9rem;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.status-message.success {
+  background-color: #c6f6d5;
+  color: #22543d;
+}
+
+.status-message.error {
+  background-color: #fed7d7;
+  color: #742a2a;
+}
+
+.status-message.info {
+  background-color: #bee3f8;
+  color: #2a4365;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ========================================
+   ローディング
+   ======================================== */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  gap: 16px;
+  color: #666;
+  background: #fff;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e2e8f0;
+  border-top-color: #3182ce;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ========================================
+   テーブル：罫線を繋げる（重要）
+   ======================================== */
+.table-container {
+  background: #fff;
+  overflow-x: auto;
+}
+
+.outing-table {
+  width: 100%;
+  border-collapse: collapse;  /* ←隙間ゼロ */
+  table-layout: fixed;
+  background: #fff;
+}
+
+.outing-table th,
+.outing-table td {
+  border: 1px solid #c9d4e3;
+  padding: 0;                 /* ←セル余白を消す */
+  height: 54px;               /* 見やすい行高 */
+  vertical-align: middle;
+}
+
+/* ヘッダ行 */
+.outing-table thead th {
+  background: #244a73;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 10px 10px;
+  text-align: left;
+}
+
+/* 列幅（重要：行先を最大に、ホワイトボードに合わせる） */
+.col-name {
+  width: 100px;  /* 人員：狭く */
+}
+
+.col-destination {
+  width: auto;  /* 行先：残り全部（約60%） */
+}
+
+.col-date {
+  width: 130px;  /* 出社日：日付ピッカー用に少し広く */
+}
+
+.col-time {
+  width: 100px;  /* 帰社時刻：狭く */
+}
+
+.col-note {
+  width: 200px;  /* 備考：中くらい */
+}
+
+.col-action {
+  width: 80px;  /* 操作：最小限 */
+}
+
+/* ========================================
+   名前セル（大きく、濃く、太く）
+   ======================================== */
+.name-cell {
+  padding: 0 8px !important;  /* 狭い列幅に合わせて調整 */
+  font-weight: 800;
+  font-size: 18px;  /* 少し小さく */
+  color: #0b1f3a;
+  background: #f7f9fc;
+  white-space: nowrap;
+  text-align: center;  /* 中央寄せ */
+}
+
+/* ========================================
+   inputを"セル編集"風にする
+   ======================================== */
+.cell-input {
+  width: 100%;
+  height: 54px;
+  border: 0;                 /* 箱を消す */
+  outline: none;
+  padding: 0 10px;           /* 最低限 */
+  font-size: 16px;
+  background: transparent;   /* セル背景を活かす */
+  color: #0b1f3a;
+  font-family: inherit;
+}
+
+/* 行先を大きく */
+.cell-input.destination {
+  font-size: 18px;
+  font-weight: 650;
+}
+
+/* 日付セル（出社日） */
+.date-cell .cell-input {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+/* 時刻は中央寄せでコンパクト */
+.time-cell .cell-input {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 備考 */
+.note-cell .cell-input {
+  font-size: 16px;
+}
+
+/* フォーカス時だけ薄く強調（スプレッドシートっぽく） */
+.outing-table td:focus-within {
+  background: #eef6ff;
+  box-shadow: inset 0 0 0 2px #6aa4ff;
+}
+
+/* ========================================
+   行ステータス（外出中ハイライト）
+   ======================================== */
+.row-out td,
+.row-out th {
+  background: #fff3e0 !important; /* 薄いオレンジ */
+}
+
+.row-out td:focus-within {
+  background: #ffe8c2 !important;
+  box-shadow: inset 0 0 0 2px #6aa4ff;
+}
+
+.row-back td,
+.row-back th {
+  background: #e8f5e9; /* 薄い緑 */
+}
+
+.row-back td:focus-within {
+  background: #d4edd7 !important;
+  box-shadow: inset 0 0 0 2px #6aa4ff;
+}
+
+.row-none td,
+.row-none th {
+  background: #fff;
+}
+
+.row-empty td,
+.row-empty th {
+  background: #f7f9fc;
+  opacity: 0.6;
+}
+
+/* 保存中の行 */
+.row-saving {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* ========================================
+   操作ボタン（保存・クリア）
+   ======================================== */
+.action-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px !important;
+}
+
+.save-btn,
+.clear-btn {
+  width: 100%;
+  height: 25px;
+  border: 0;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.2s;
+}
+
+.save-btn {
+  background: #2f9e44;
+}
+
+.save-btn:hover:not(:disabled) {
+  background: #268039;
+}
+
+.save-btn:disabled {
+  background: #94d3a2;
+  cursor: not-allowed;
+}
+
+.clear-btn {
+  background: #d9534f;
+}
+
+.clear-btn:hover:not(:disabled) {
+  background: #c9302c;
+}
+
+.clear-btn:disabled {
+  background: #f5a9a6;
+  cursor: not-allowed;
+}
+
+/* ========================================
+   凡例とクリアボタン
+   ======================================== */
+.legend-container {
+  padding: 16px 20px;
+  background: #fff;
+  border-top: 1px solid #c9d4e3;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.legend {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-color {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid rgba(0,0,0,0.1);
+}
+
+.legend-out {
+  background-color: #fff3e0;
+}
+
+.legend-back {
+  background-color: #e8f5e9;
+}
+
+/* ========================================
+   アニメーション
+   ======================================== */
+.fade-in {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.row-updated {
+  animation: highlightRow 1s ease;
+}
+
+@keyframes highlightRow {
+  0% { background-color: #bee3f8 !important; }
+  100% { background-color: inherit !important; }
+}
+
+/* ========================================
+   レスポンシブ
+   ======================================== */
+@media (max-width: 768px) {
+  .header {
+    padding: 12px 16px;
+  }
+
+  .title {
+    font-size: 18px;
+  }
+
+  .outing-table th,
+  .outing-table td {
+    height: 48px;
+  }
+
+  .cell-input {
+    height: 48px;
+    font-size: 14px;
+    padding: 0 8px;
+  }
+
+  .cell-input.destination {
+    font-size: 16px;
+  }
+
+  .name-cell {
+    font-size: 16px;
+    padding: 0 8px !important;
+  }
+
+  .save-btn {
+    height: 48px;
+    font-size: 13px;
+  }
+
+  .legend {
+    padding: 12px 16px;
+  }
+}
+</style>
