@@ -1,126 +1,142 @@
 /**
- * 初期設定ヘルパー
- * 
- * 初回セットアップ時にこのファイルの関数を実行してください。
+ * Setup.js - 初期設定（シート自動作成・トリガー設定）
  */
 
-/**
- * スクリプトプロパティを初期設定
- * 
- * 使い方：
- * 1. この関数内の値を実際の環境に合わせて編集
- * 2. GASエディタで initializeProperties を実行
- * 3. デプロイ
- */
-function initializeProperties() {
-  const props = PropertiesService.getScriptProperties();
-  
-  // ========================================
-  // ここを編集してください
-  // ========================================
-  const config = {
-    // スプレッドシートID（URLの /d/ と /edit の間の部分）
-    SPREADSHEET_ID: 'YOUR_SPREADSHEET_ID_HERE',
-    
-    // シート名
-    SHEET_NAME: '外出ホワイトボード',
-    
-    // 日付セル
-    DATE_CELL: 'D2',
-    
-    // ヘッダー範囲
-    HEADER_RANGE: 'A3:E3',
-    
-    // データ範囲
-    DATA_RANGE: 'A4:E19'
-  };
-  // ========================================
-  
-  // プロパティを設定
-  props.setProperties(config);
-  
-  Logger.log('スクリプトプロパティを設定しました:');
-  Logger.log(JSON.stringify(config, null, 2));
-  
-  return '設定完了';
+function setupTeamSchedule() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // 1. SETTINGS sheet
+  createSettingsSheet_(ss);
+
+  // 2. DB_TeamSchedule sheet
+  createDbTeamScheduleSheet_(ss);
+
+  // 3. BOARD sheet
+  createBoardSheet_(ss);
+
+  // 4. Daily trigger
+  setupDailyTrigger();
+
+  ss.toast('初期設定が完了しました。SETTINGSシートにメンバー情報を入力してください。', 'セットアップ完了', 10);
 }
 
-/**
- * 現在のスクリプトプロパティを確認
- */
-function viewProperties() {
-  const props = PropertiesService.getScriptProperties();
-  const all = props.getProperties();
-  
-  Logger.log('現在のスクリプトプロパティ:');
-  Logger.log(JSON.stringify(all, null, 2));
-  
-  return all;
-}
-
-/**
- * スクリプトプロパティをクリア
- */
-function clearProperties() {
-  const props = PropertiesService.getScriptProperties();
-  props.deleteAllProperties();
-  
-  Logger.log('スクリプトプロパティをクリアしました');
-  
-  return 'クリア完了';
-}
-
-/**
- * 接続テスト - シートにアクセスできるか確認
- */
-function testConnection() {
-  try {
-    const config = SheetService.getConfig();
-    
-    if (!config.spreadsheetId || config.spreadsheetId === 'YOUR_SPREADSHEET_ID_HERE') {
-      throw new Error('SPREADSHEET_ID が設定されていません。initializeProperties を実行してください。');
-    }
-    
-    const ss = SpreadsheetApp.openById(config.spreadsheetId);
-    const sheet = ss.getSheetByName(config.sheetName);
-    
-    if (!sheet) {
-      throw new Error(`シート「${config.sheetName}」が見つかりません。`);
-    }
-    
-    // 日付セルを読み取り
-    const dateValue = sheet.getRange(config.dateCell).getValue();
-    
-    // データ範囲を読み取り
-    const dataRange = sheet.getRange(config.dataRange);
-    const rowCount = dataRange.getNumRows();
-    
-    const result = {
-      status: 'OK',
-      spreadsheetName: ss.getName(),
-      sheetName: sheet.getName(),
-      dateCell: config.dateCell,
-      dateCellValue: dateValue,
-      dataRange: config.dataRange,
-      dataRowCount: rowCount
-    };
-    
-    Logger.log('接続テスト成功:');
-    Logger.log(JSON.stringify(result, null, 2));
-    
-    return result;
-    
-  } catch (e) {
-    Logger.log('接続テスト失敗: ' + e.message);
-    throw e;
+function createSettingsSheet_(ss) {
+  var existing = ss.getSheetByName(SHEET_NAMES.SETTINGS);
+  if (existing) {
+    Logger.log('SETTINGS sheet already exists, skipping.');
+    return;
   }
+
+  var sheet = ss.insertSheet(SHEET_NAMES.SETTINGS);
+
+  // Title
+  sheet.getRange('A1').setValue('SETTINGS').setFontWeight('bold').setFontSize(14);
+  sheet.getRange('A1:B1').mergeAcross();
+
+  // Headers
+  sheet.getRange('A2').setValue('Key').setFontWeight('bold');
+  sheet.getRange('B2').setValue('Value').setFontWeight('bold');
+
+  // Default values
+  var defaults = [
+    ['Member1_Name', ''],
+    ['Member1_SSID', ''],
+    ['Member2_Name', ''],
+    ['Member2_SSID', ''],
+    ['Member3_Name', ''],
+    ['Member3_SSID', ''],
+    ['Member4_Name', ''],
+    ['Member4_SSID', ''],
+    ['Member5_Name', ''],
+    ['Member5_SSID', ''],
+    ['DB_EventsSheet', 'DB_Events'],
+    ['SyncTime', '06:00'],
+    ['LastSyncAt', ''],
+    ['CompanyName', '桜井電装']
+  ];
+
+  sheet.getRange(3, 1, defaults.length, 2).setValues(defaults);
+
+  // Column widths
+  sheet.setColumnWidth(1, 180);
+  sheet.setColumnWidth(2, 400);
+
+  // Styling
+  sheet.getRange('A2:B2').setBackground('#2c4a7c').setFontColor('#ffffff');
+  sheet.getRange('A1').setBackground('#f6e27a');
 }
 
-/**
- * デプロイ後のURL確認用
- */
-function getWebAppUrl() {
-  const url = ScriptApp.getService().getUrl();
-  Logger.log('WebアプリURL: ' + url);
-  return url;
+function createDbTeamScheduleSheet_(ss) {
+  var existing = ss.getSheetByName(SHEET_NAMES.DB_TEAM_SCHEDULE);
+  if (existing) {
+    Logger.log('DB_TeamSchedule sheet already exists, skipping.');
+    return;
+  }
+
+  var sheet = ss.insertSheet(SHEET_NAMES.DB_TEAM_SCHEDULE);
+
+  // Title
+  sheet.getRange('A1').setValue('DB_TeamSchedule').setFontWeight('bold').setFontSize(14);
+
+  // Headers
+  var headers = ['member_name', 'event_id', 'title', 'start_date', 'end_date',
+                 'start_time', 'end_time', 'all_day', 'memo', 'color_key', 'synced_at'];
+  sheet.getRange(2, 1, 1, headers.length).setValues([headers]);
+  sheet.getRange(2, 1, 1, headers.length).setFontWeight('bold').setBackground('#2c4a7c').setFontColor('#ffffff');
+
+  // Freeze header rows
+  sheet.setFrozenRows(2);
+}
+
+function createBoardSheet_(ss) {
+  var existing = ss.getSheetByName(SHEET_NAMES.BOARD);
+  if (existing) {
+    Logger.log('BOARD sheet already exists, skipping.');
+    return;
+  }
+
+  var sheet = ss.insertSheet(SHEET_NAMES.BOARD);
+
+  // Title
+  sheet.getRange('A1').setValue('BOARD').setFontWeight('bold').setFontSize(14);
+
+  // Headers
+  var headers = ['date', 'member_name', 'location', 'return_time', 'notes', 'updated_at'];
+  sheet.getRange(2, 1, 1, headers.length).setValues([headers]);
+  sheet.getRange(2, 1, 1, headers.length).setFontWeight('bold').setBackground('#2c4a7c').setFontColor('#ffffff');
+
+  // Freeze header rows
+  sheet.setFrozenRows(2);
+}
+
+function setupDailyTrigger() {
+  // Remove existing triggers for syncAllMembers
+  var triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(function(trigger) {
+    if (trigger.getHandlerFunction() === 'syncAllMembers') {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+
+  // Create new 6AM trigger
+  ScriptApp.newTrigger('syncAllMembers')
+    .timeBased()
+    .everyDays(1)
+    .atHour(6)
+    .nearMinute(0)
+    .create();
+
+  Logger.log('Daily sync trigger set for 6:00 AM');
+}
+
+function removeDailyTrigger() {
+  var triggers = ScriptApp.getProjectTriggers();
+  var count = 0;
+  triggers.forEach(function(trigger) {
+    if (trigger.getHandlerFunction() === 'syncAllMembers') {
+      ScriptApp.deleteTrigger(trigger);
+      count++;
+    }
+  });
+  Logger.log('Removed ' + count + ' trigger(s).');
 }

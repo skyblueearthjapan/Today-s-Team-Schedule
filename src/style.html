@@ -1,6 +1,36 @@
 <style>
 /* ========================================
-   全体
+   CSS Custom Properties
+   ======================================== */
+:root {
+  --primary-dark: #2c4a7c;
+  --primary-light: #5c7cba;
+  --gold-dark: #c9a84c;
+  --gold-bright: #f6e27a;
+  --sakura: #f0b8c8;
+  --bg: #eef2f9;
+  --text: #0b1f3a;
+  --white: #ffffff;
+  --border: #d4dce8;
+  --border-light: #e8edf5;
+  --shadow-sm: 0 1px 3px rgba(11, 31, 58, 0.08);
+  --shadow-md: 0 2px 8px rgba(11, 31, 58, 0.12);
+  --shadow-lg: 0 4px 16px rgba(11, 31, 58, 0.15);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+}
+
+/* Member color assignments */
+.member-0 { --member-color: #2c4a7c; }
+.member-1 { --member-color: #c9a84c; }
+.member-2 { --member-color: #d4769a; }
+.member-3 { --member-color: #4a8c6f; }
+.member-4 { --member-color: #8b6bb5; }
+
+/* ========================================
+   Reset & Base
    ======================================== */
 * {
   box-sizing: border-box;
@@ -9,30 +39,38 @@
 }
 
 body {
-  margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
-  background: #f4f7fb;
-  color: #0b1f3a;
+  font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo',
+               system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
   line-height: 1.6;
+  min-height: 100vh;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.container {
-  max-width: 100%;
-  margin: 0;
+.app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-bottom: 40px;
+}
+
+.hidden {
+  display: none !important;
 }
 
 /* ========================================
-   ヘッダー
+   Header
    ======================================== */
 .header {
-  background: #244a73;
-  color: #fff;
-  padding: 16px 20px;
+  background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary-dark) 100%);
+  color: var(--white);
+  padding: 14px 20px 12px;
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 12px;
+  box-shadow: 0 2px 8px rgba(44, 74, 124, 0.3);
 }
 
 .header-left {
@@ -41,78 +79,63 @@ body {
   gap: 12px;
 }
 
-.lineworks-logo {
-  font-family: 'Arial Black', 'Helvetica Neue', Arial, sans-serif;
-  font-weight: 900;
-  color: #ffffff;
-  font-size: 20px;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
+.header-title {
+  font-size: 19px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
 }
 
-.title {
-  margin: 0;
-  font-size: 22px;
-  letter-spacing: .04em;
-  font-weight: 600;
+.header-brand {
+  font-size: 10px;
+  opacity: 0.75;
+  letter-spacing: 1.5px;
+  margin-top: 2px;
 }
 
-.header-controls {
+.header-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
-.portal-link {
-  display: inline-block;
-  font-size: 13px;
-  padding: 6px 12px;
-  border-radius: 8px;
-  border: 1px solid #1f9d55;
-  background: #1f9d55;
-  color: #fff;
-  text-decoration: none;
-  font-weight: 500;
+/* ========================================
+   Gold Shimmer Line
+   ======================================== */
+.gold-line {
+  height: 3px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    #c9a84c 15%,
+    #f6e27a 35%,
+    #f9f0c8 50%,
+    #f6e27a 65%,
+    #c9a84c 85%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: goldShimmer 4s ease-in-out infinite;
 }
 
-.portal-link:hover {
-  background: #177a43;
-  border-color: #177a43;
-  color: #fff;
-  text-decoration: none;
-}
-
-.date-picker {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.date-picker label {
-  font-size: 0.9rem;
-}
-
-.date-picker input[type="date"] {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
-  font-size: 0.95rem;
-  cursor: pointer;
+@keyframes goldShimmer {
+  0% { background-position: 100% 0; }
+  50% { background-position: 0% 0; }
+  100% { background-position: 100% 0; }
 }
 
 /* ========================================
-   保存ステータス
+   Save Status
    ======================================== */
 .save-status {
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 0.85rem;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   transition: all 0.3s ease;
+  white-space: nowrap;
 }
 
 .save-status-saved {
@@ -152,79 +175,179 @@ body {
 }
 
 /* ========================================
-   ボタン
+   Sync Info
    ======================================== */
-.btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  cursor: pointer;
-  display: inline-flex;
+.sync-info {
+  display: flex;
   align-items: center;
-  gap: 4px;
-  transition: all 0.2s ease;
+  gap: 6px;
 }
 
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.sync-label {
+  font-size: 10px;
+  opacity: 0.75;
+  white-space: nowrap;
 }
 
-.btn-secondary {
-  background-color: rgba(255,255,255,0.2);
-  color: white;
-  border: 1px solid rgba(255,255,255,0.3);
+.btn-sync {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  color: var(--white);
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.btn-secondary:hover:not(:disabled) {
-  background-color: rgba(255,255,255,0.3);
+.btn-sync:hover {
+  background: rgba(255,255,255,0.3);
+  transform: rotate(90deg);
 }
 
-.btn-danger {
-  background-color: #d9534f;
-  color: white;
+.btn-sync.syncing {
+  animation: spinSync 1s linear infinite;
+  pointer-events: none;
 }
 
-.btn-danger:hover:not(:disabled) {
-  background-color: #c9302c;
-}
-
-.btn-icon {
-  font-size: 1.1em;
+@keyframes spinSync {
+  to { transform: rotate(360deg); }
 }
 
 /* ========================================
-   ステータスメッセージ
+   Portal Button (Pill)
+   ======================================== */
+.header-portal-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.35);
+  color: var(--white);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-decoration: none;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
+  white-space: nowrap;
+}
+
+.header-portal-btn:hover {
+  background: rgba(255,255,255,0.30);
+  border-color: rgba(246,226,122,0.6);
+  transform: translateY(-1px);
+}
+
+.header-portal-btn .portal-icon {
+  font-size: 14px;
+}
+
+/* ========================================
+   Tab Navigation
+   ======================================== */
+.tab-nav {
+  display: flex;
+  background: var(--white);
+  border-bottom: 2px solid var(--border);
+  padding: 0 16px;
+}
+
+.tab-btn {
+  padding: 12px 24px;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: #7a8ba5;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  letter-spacing: 0.3px;
+}
+
+.tab-btn:hover {
+  color: var(--primary-dark);
+}
+
+.tab-btn.active {
+  color: var(--primary-dark);
+  border-bottom-color: var(--gold-dark);
+}
+
+/* ========================================
+   Member Filter Bar
+   ======================================== */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 16px;
+  background: var(--white);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.filter-btn {
+  padding: 5px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--white);
+  font-size: 12px;
+  font-weight: 600;
+  color: #7a8ba5;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-btn:hover {
+  border-color: var(--primary-light);
+  color: var(--primary-dark);
+}
+
+.filter-btn.active {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+  color: var(--white);
+}
+
+.filter-btn.member-active {
+  background: var(--member-color, var(--primary-dark));
+  border-color: var(--member-color, var(--primary-dark));
+  color: var(--white);
+}
+
+/* ========================================
+   Status Message
    ======================================== */
 .status-message {
-  padding: 12px 20px;
-  margin: 0;
-  font-size: 0.9rem;
-  border-bottom: 1px solid rgba(0,0,0,0.1);
+  padding: 10px 20px;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
 }
 
 .status-message.success {
-  background-color: #c6f6d5;
-  color: #22543d;
+  background-color: #d4edda;
+  color: #155724;
 }
 
 .status-message.error {
-  background-color: #fed7d7;
-  color: #742a2a;
+  background-color: #f8d7da;
+  color: #721c24;
 }
 
 .status-message.info {
-  background-color: #bee3f8;
-  color: #2a4365;
-}
-
-.hidden {
-  display: none !important;
+  background-color: #d1ecf1;
+  color: #0c5460;
 }
 
 /* ========================================
-   ローディング
+   Loading
    ======================================== */
 .loading {
   display: flex;
@@ -232,18 +355,17 @@ body {
   align-items: center;
   justify-content: center;
   padding: 48px;
-  gap: 16px;
-  color: #666;
-  background: #fff;
+  gap: 14px;
+  color: #7a8ba5;
 }
 
 .spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #e2e8f0;
-  border-top-color: #3182ce;
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary-dark);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
@@ -251,312 +373,553 @@ body {
 }
 
 /* ========================================
-   テーブル：罫線を繋げる（重要）
+   Date Navigation
    ======================================== */
-.table-container {
-  background: #fff;
-  overflow-x: auto;
-}
-
-.outing-table {
-  width: 100%;
-  border-collapse: collapse;  /* ←隙間ゼロ */
-  table-layout: fixed;
-  background: #fff;
-}
-
-.outing-table th,
-.outing-table td {
-  border: 1px solid #c9d4e3;
-  padding: 0;                 /* ←セル余白を消す */
-  height: 54px;               /* 見やすい行高 */
-  vertical-align: middle;
-}
-
-/* ヘッダ行 */
-.outing-table thead th {
-  background: #244a73;
-  color: #fff;
-  font-weight: 700;
-  font-size: 14px;
-  padding: 10px 10px;
-  text-align: left;
-}
-
-/* 列幅（重要：行先を最大に、ホワイトボードに合わせる） */
-.col-name {
-  width: 100px;  /* 人員：狭く */
-}
-
-.col-destination {
-  width: auto;  /* 行先：残り全部（約60%） */
-}
-
-.col-date {
-  width: 130px;  /* 出社日：日付ピッカー用に少し広く */
-}
-
-.col-time {
-  width: 100px;  /* 帰社時刻：狭く */
-}
-
-.col-note {
-  width: 200px;  /* 備考：中くらい */
-}
-
-.col-action {
-  width: 80px;  /* 操作：最小限 */
-}
-
-/* ========================================
-   名前セル（大きく、濃く、太く）
-   ======================================== */
-.name-cell {
-  padding: 0 8px !important;  /* 狭い列幅に合わせて調整 */
-  font-weight: 800;
-  font-size: 18px;  /* 少し小さく */
-  color: #0b1f3a;
-  background: #f7f9fc;
-  white-space: nowrap;
-  text-align: center;  /* 中央寄せ */
-}
-
-/* ========================================
-   inputを"セル編集"風にする
-   ======================================== */
-.cell-input {
-  width: 100%;
-  height: 54px;
-  border: 0;                 /* 箱を消す */
-  outline: none;
-  padding: 0 10px;           /* 最低限 */
-  font-size: 16px;
-  background: transparent;   /* セル背景を活かす */
-  color: #0b1f3a;
-  font-family: inherit;
-}
-
-/* 行先を大きく */
-.cell-input.destination {
-  font-size: 18px;
-  font-weight: 650;
-}
-
-/* 日付セル（出社日） */
-.date-cell .cell-input {
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-  cursor: pointer;
-}
-
-/* 時刻は中央寄せでコンパクト */
-.time-cell .cell-input {
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-/* 備考 */
-.note-cell .cell-input {
-  font-size: 16px;
-}
-
-/* フォーカス時だけ薄く強調（スプレッドシートっぽく） */
-.outing-table td:focus-within {
-  background: #eef6ff;
-  box-shadow: inset 0 0 0 2px #6aa4ff;
-}
-
-/* ========================================
-   行ステータス（外出中ハイライト）
-   ======================================== */
-.row-out td,
-.row-out th {
-  background: #fff3e0 !important; /* 薄いオレンジ */
-}
-
-.row-out td:focus-within {
-  background: #ffe8c2 !important;
-  box-shadow: inset 0 0 0 2px #6aa4ff;
-}
-
-.row-back td,
-.row-back th {
-  background: #e8f5e9; /* 薄い緑 */
-}
-
-.row-back td:focus-within {
-  background: #d4edd7 !important;
-  box-shadow: inset 0 0 0 2px #6aa4ff;
-}
-
-.row-none td,
-.row-none th {
-  background: #fff;
-}
-
-.row-empty td,
-.row-empty th {
-  background: #f7f9fc;
-  opacity: 0.6;
-}
-
-/* 保存中の行 */
-.row-saving {
-  opacity: 0.7;
-  pointer-events: none;
-}
-
-/* ========================================
-   操作ボタン（保存・クリア）
-   ======================================== */
-.action-cell {
+.date-nav {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 4px !important;
-}
-
-.save-btn,
-.clear-btn {
-  width: 100%;
-  height: 25px;
-  border: 0;
-  color: #fff;
-  font-weight: 700;
-  cursor: pointer;
-  font-size: 12px;
-  transition: background 0.2s;
-}
-
-.save-btn {
-  background: #2f9e44;
-}
-
-.save-btn:hover:not(:disabled) {
-  background: #268039;
-}
-
-.save-btn:disabled {
-  background: #94d3a2;
-  cursor: not-allowed;
-}
-
-.clear-btn {
-  background: #d9534f;
-}
-
-.clear-btn:hover:not(:disabled) {
-  background: #c9302c;
-}
-
-.clear-btn:disabled {
-  background: #f5a9a6;
-  cursor: not-allowed;
-}
-
-/* ========================================
-   凡例とクリアボタン
-   ======================================== */
-.legend-container {
-  padding: 16px 20px;
-  background: #fff;
-  border-top: 1px solid #c9d4e3;
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--white);
+  border-bottom: 1px solid var(--border-light);
 }
 
-.legend {
+.nav-btn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  color: var(--primary-dark);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
   display: flex;
-  gap: 24px;
-  flex-wrap: wrap;
-  font-size: 0.85rem;
-  color: #666;
+  align-items: center;
+  justify-content: center;
 }
 
-.legend-item {
+.nav-btn:hover {
+  background: var(--primary-dark);
+  color: var(--white);
+  border-color: var(--primary-dark);
+}
+
+.date-display {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  min-width: 160px;
+  text-align: center;
+}
+
+.nav-btn-text {
+  padding: 6px 16px;
+  border: 1px solid var(--gold-dark);
+  border-radius: var(--radius-pill);
+  background: var(--white);
+  color: var(--gold-dark);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.nav-btn-text:hover {
+  background: var(--gold-dark);
+  color: var(--white);
+}
+
+/* ========================================
+   TODAY VIEW: Member Cards
+   ======================================== */
+.member-card {
+  background: var(--white);
+  border-radius: var(--radius-md);
+  margin: 12px 16px;
+  box-shadow: var(--shadow-sm);
+  border-left: 4px solid var(--member-color, var(--primary-dark));
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+
+.member-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.member-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(44,74,124,0.03) 0%, rgba(44,74,124,0.06) 100%);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.member-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--member-color, var(--primary-dark));
+  color: var(--white);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.member-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.no-calendar-notice {
+  padding: 8px 16px;
+  font-size: 12px;
+  color: #a0a0a0;
+  font-style: italic;
+}
+
+/* ========================================
+   Calendar Events (read-only)
+   ======================================== */
+.events-section {
+  padding: 8px 16px;
+}
+
+.events-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #7a8ba5;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.event-item {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 6px 10px;
+  margin-bottom: 4px;
+  border-radius: var(--radius-sm);
+  background: #f7f9fc;
+  font-size: 13px;
+  border-left: 3px solid var(--member-color, var(--primary-light));
 }
 
-.legend-color {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  border: 1px solid rgba(0,0,0,0.1);
+.event-time {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-dark);
+  white-space: nowrap;
+  min-width: 90px;
 }
 
-.legend-out {
-  background-color: #fff3e0;
+.event-title {
+  flex: 1;
+  color: var(--text);
+  font-weight: 500;
 }
 
-.legend-back {
-  background-color: #e8f5e9;
+.event-badge-allday {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--gold-bright);
+  color: #7a6520;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.event-memo {
+  font-size: 11px;
+  color: #7a8ba5;
+  margin-left: auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.no-events {
+  padding: 8px 0;
+  font-size: 12px;
+  color: #a0a0a0;
+}
+
+/* Event color keys */
+.event-color-1 { border-left-color: #4285f4; }
+.event-color-2 { border-left-color: #0b8043; }
+.event-color-3 { border-left-color: #8e24aa; }
+.event-color-4 { border-left-color: #e67c73; }
+.event-color-5 { border-left-color: #f6bf26; }
+.event-color-6 { border-left-color: #039be5; }
+.event-color-7 { border-left-color: #616161; }
+.event-color-8 { border-left-color: #3f51b5; }
+.event-color-9 { border-left-color: #d4769a; }
+.event-color-10 { border-left-color: #33b679; }
+.event-color-11 { border-left-color: #d50000; }
+
+/* ========================================
+   Manual Input Section (Board fields)
+   ======================================== */
+.board-section {
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--border-light);
+  background: linear-gradient(135deg, rgba(201,168,76,0.02) 0%, rgba(201,168,76,0.05) 100%);
+}
+
+.board-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gold-dark);
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.board-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+.board-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.board-field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #7a8ba5;
+}
+
+.board-field input {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--white);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: inherit;
+}
+
+.board-field input:focus {
+  outline: none;
+  border-color: var(--primary-light);
+  box-shadow: 0 0 0 2px rgba(92, 124, 186, 0.15);
+}
+
+.board-field input[type="time"] {
+  font-variant-numeric: tabular-nums;
 }
 
 /* ========================================
-   アニメーション
+   WEEK VIEW: Grid
+   ======================================== */
+.week-grid-wrapper {
+  overflow-x: auto;
+  padding: 0 16px 16px;
+}
+
+.week-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  background: var(--white);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.week-grid th {
+  padding: 10px 6px;
+  background: var(--primary-dark);
+  color: var(--white);
+  font-weight: 600;
+  text-align: center;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.week-grid th.weekend {
+  background: #3a5a8e;
+}
+
+.week-grid th.today-col {
+  background: var(--gold-dark);
+  color: var(--white);
+}
+
+.week-grid td {
+  border: 1px solid var(--border-light);
+  padding: 4px 5px;
+  vertical-align: top;
+  min-width: 100px;
+  max-width: 140px;
+  height: 60px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.week-grid td:hover {
+  background: #f0f4fb;
+}
+
+.week-grid td.today-col {
+  background: rgba(201,168,76,0.06);
+}
+
+.week-grid td.today-col:hover {
+  background: rgba(201,168,76,0.12);
+}
+
+.week-grid .member-name-cell {
+  padding: 8px 10px;
+  font-weight: 700;
+  font-size: 13px;
+  background: #f7f9fc;
+  white-space: nowrap;
+  cursor: default;
+  border-left: 3px solid var(--member-color, var(--primary-dark));
+}
+
+.week-event-item {
+  padding: 2px 4px;
+  margin-bottom: 2px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: var(--text);
+  background: rgba(92, 124, 186, 0.08);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.week-board-info {
+  padding: 2px 4px;
+  margin-top: 2px;
+  border-radius: 3px;
+  font-size: 10px;
+  color: var(--gold-dark);
+  background: rgba(201,168,76,0.08);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ========================================
+   MONTH VIEW: Calendar Grid
+   ======================================== */
+.cal-grid {
+  padding: 0 16px 16px;
+}
+
+.cal-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--white);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.cal-table th {
+  padding: 10px 0;
+  background: var(--primary-dark);
+  color: var(--white);
+  font-weight: 600;
+  font-size: 13px;
+  text-align: center;
+}
+
+.cal-table th.sun {
+  color: #ffb4b4;
+}
+
+.cal-table th.sat {
+  color: #b4d4ff;
+}
+
+.cal-table td {
+  border: 1px solid var(--border-light);
+  vertical-align: top;
+  padding: 4px 6px;
+  height: 80px;
+  cursor: pointer;
+  transition: background 0.15s;
+  width: 14.28%;
+}
+
+.cal-table td:hover {
+  background: #f0f4fb;
+}
+
+.cal-table td.other-month {
+  background: #f9fafb;
+  color: #c0c8d4;
+}
+
+.cal-table td.today {
+  border: 2px solid var(--gold-dark);
+  background: rgba(201,168,76,0.04);
+}
+
+.cal-day-num {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: inherit;
+}
+
+.cal-day-num.sun {
+  color: #d9534f;
+}
+
+.cal-day-num.sat {
+  color: #5b8dd9;
+}
+
+.cal-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.cal-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--member-color, var(--primary-dark));
+}
+
+/* ========================================
+   Footer
+   ======================================== */
+.app-footer {
+  text-align: center;
+  padding: 16px 0 8px;
+  font-size: 10px;
+  color: #b0b8c8;
+  letter-spacing: 1px;
+}
+
+.app-footer-gold {
+  color: var(--gold-dark);
+  font-weight: bold;
+}
+
+/* ========================================
+   Animations
    ======================================== */
 .fade-in {
   animation: fadeIn 0.3s ease;
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.row-updated {
-  animation: highlightRow 1s ease;
-}
-
-@keyframes highlightRow {
-  0% { background-color: #bee3f8 !important; }
-  100% { background-color: inherit !important; }
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* ========================================
-   レスポンシブ
+   Responsive
    ======================================== */
 @media (max-width: 768px) {
   .header {
-    padding: 12px 16px;
+    padding: 12px 14px 10px;
   }
 
-  .title {
-    font-size: 18px;
-  }
-
-  .outing-table th,
-  .outing-table td {
-    height: 48px;
-  }
-
-  .cell-input {
-    height: 48px;
-    font-size: 14px;
-    padding: 0 8px;
-  }
-
-  .cell-input.destination {
+  .header-title {
     font-size: 16px;
   }
 
-  .name-cell {
-    font-size: 16px;
-    padding: 0 8px !important;
+  .header-right {
+    gap: 6px;
   }
 
-  .save-btn {
-    height: 48px;
+  .sync-label {
+    display: none;
+  }
+
+  .tab-btn {
+    padding: 10px 16px;
     font-size: 13px;
   }
 
-  .legend {
-    padding: 12px 16px;
+  .date-display {
+    font-size: 14px;
+    min-width: 120px;
+  }
+
+  .board-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .week-grid td {
+    min-width: 80px;
+  }
+
+  .cal-table td {
+    height: 60px;
+    padding: 3px 4px;
+  }
+
+  .cal-day-num {
+    font-size: 11px;
+  }
+
+  .cal-dot {
+    width: 6px;
+    height: 6px;
+  }
+
+  .member-card {
+    margin: 8px 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-portal-btn {
+    display: none;
+  }
+
+  .tab-btn {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .filter-btn {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+
+  .nav-btn-text {
+    padding: 5px 12px;
+    font-size: 12px;
+  }
+}
+
+/* ========================================
+   Reduced Motion
+   ======================================== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .gold-line {
+    animation: none;
+    background-size: 100% 100%;
   }
 }
 </style>

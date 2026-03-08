@@ -1,6 +1,6 @@
 <script>
 /**
- * 外出記入板 フロントエンドJS
+ * チームスケジュール フロントエンドJS
  * A+C+B 保存方式実装
  * A: Draft (localStorage即座保存)
  * C: ChangeQueue (変更キュー)
@@ -10,26 +10,22 @@
 // ========================================
 // A層: DraftStore (ローカル保存)
 // ========================================
-const DraftStore = (function() {
-  const STORAGE_KEY_PREFIX = 'outingBoard_draft_';
-  const STORAGE_VERSION = 'v1';
+var DraftStore = (function() {
+  var STORAGE_KEY_PREFIX = 'teamSchedule_board_v1_';
 
   function getStorageKey(date) {
-    return `${STORAGE_KEY_PREFIX}${STORAGE_VERSION}_${date}`;
+    return STORAGE_KEY_PREFIX + date;
   }
 
-  function saveDraft(date, rowIndex, fieldName, value) {
+  function saveDraft(date, memberName, fieldName, value) {
     try {
-      const key = getStorageKey(date);
-      const drafts = loadAllDrafts(date);
-
-      if (!drafts[rowIndex]) {
-        drafts[rowIndex] = {};
+      var key = getStorageKey(date);
+      var drafts = loadAllDrafts(date);
+      if (!drafts[memberName]) {
+        drafts[memberName] = {};
       }
-
-      drafts[rowIndex][fieldName] = value;
-      drafts[rowIndex]._timestamp = Date.now();
-
+      drafts[memberName][fieldName] = value;
+      drafts[memberName]._timestamp = Date.now();
       localStorage.setItem(key, JSON.stringify(drafts));
       return true;
     } catch (e) {
@@ -40,8 +36,8 @@ const DraftStore = (function() {
 
   function loadAllDrafts(date) {
     try {
-      const key = getStorageKey(date);
-      const data = localStorage.getItem(key);
+      var key = getStorageKey(date);
+      var data = localStorage.getItem(key);
       return data ? JSON.parse(data) : {};
     } catch (e) {
       console.error('Failed to load drafts:', e);
@@ -49,17 +45,16 @@ const DraftStore = (function() {
     }
   }
 
-  function loadRowDraft(date, rowIndex) {
-    const drafts = loadAllDrafts(date);
-    return drafts[rowIndex] || null;
+  function loadMemberDraft(date, memberName) {
+    var drafts = loadAllDrafts(date);
+    return drafts[memberName] || null;
   }
 
-  function clearDraft(date, rowIndex) {
+  function clearDraft(date, memberName) {
     try {
-      const key = getStorageKey(date);
-      const drafts = loadAllDrafts(date);
-      delete drafts[rowIndex];
-
+      var key = getStorageKey(date);
+      var drafts = loadAllDrafts(date);
+      delete drafts[memberName];
       if (Object.keys(drafts).length === 0) {
         localStorage.removeItem(key);
       } else {
@@ -74,7 +69,7 @@ const DraftStore = (function() {
 
   function clearAllDrafts(date) {
     try {
-      const key = getStorageKey(date);
+      var key = getStorageKey(date);
       localStorage.removeItem(key);
       return true;
     } catch (e) {
@@ -84,32 +79,32 @@ const DraftStore = (function() {
   }
 
   function hasDrafts(date) {
-    const drafts = loadAllDrafts(date);
+    var drafts = loadAllDrafts(date);
     return Object.keys(drafts).length > 0;
   }
 
   return {
-    saveDraft,
-    loadAllDrafts,
-    loadRowDraft,
-    clearDraft,
-    clearAllDrafts,
-    hasDrafts
+    saveDraft: saveDraft,
+    loadAllDrafts: loadAllDrafts,
+    loadMemberDraft: loadMemberDraft,
+    clearDraft: clearDraft,
+    clearAllDrafts: clearAllDrafts,
+    hasDrafts: hasDrafts
   };
 })();
 
 // ========================================
 // C層: ChangeQueue (変更キュー)
 // ========================================
-const ChangeQueue = (function() {
-  let queue = {}; // {rowIndex: {destination: 'xxx', startTime: 'xxx', ...}}
-  let pendingSave = null;
+var ChangeQueue = (function() {
+  var queue = {}; // { memberName: { memberName, location?, returnTime?, notes? } }
+  var pendingSave = null;
 
-  function addChange(rowIndex, fieldName, value) {
-    if (!queue[rowIndex]) {
-      queue[rowIndex] = { rowIndex };
+  function addChange(memberName, fieldName, value) {
+    if (!queue[memberName]) {
+      queue[memberName] = { memberName: memberName };
     }
-    queue[rowIndex][fieldName] = value;
+    queue[memberName][fieldName] = value;
   }
 
   function getChanges() {
@@ -124,8 +119,8 @@ const ChangeQueue = (function() {
     queue = {};
   }
 
-  function clearRowChanges(rowIndex) {
-    delete queue[rowIndex];
+  function clearMemberChanges(memberName) {
+    delete queue[memberName];
   }
 
   function setPendingSave(timeoutId) {
@@ -143,43 +138,38 @@ const ChangeQueue = (function() {
   }
 
   return {
-    addChange,
-    getChanges,
-    hasChanges,
-    clearChanges,
-    clearRowChanges,
-    setPendingSave,
-    clearPendingSave
+    addChange: addChange,
+    getChanges: getChanges,
+    hasChanges: hasChanges,
+    clearChanges: clearChanges,
+    clearMemberChanges: clearMemberChanges,
+    setPendingSave: setPendingSave,
+    clearPendingSave: clearPendingSave
   };
 })();
 
 // ========================================
 // SaveManager: A+C+B 統合管理
 // ========================================
-const SaveManager = (function() {
-  const AUTO_SAVE_DELAY = 3000; // 3秒
-  const PERIODIC_SAVE_INTERVAL = 30000; // 30秒
-  let periodicSaveTimer = null;
-  let saveStatus = 'saved'; // 'saved' | 'saving' | 'unsaved' | 'error' | 'offline'
-  let isSaving = false;
+var SaveManager = (function() {
+  var AUTO_SAVE_DELAY = 3000;
+  var PERIODIC_SAVE_INTERVAL = 30000;
+  var periodicSaveTimer = null;
+  var saveStatus = 'saved';
+  var isSaving = false;
 
   function init() {
-    // 定期保存タイマー開始
     startPeriodicSave();
 
-    // ページ離脱時に保存
     window.addEventListener('beforeunload', function(e) {
       if (ChangeQueue.hasChanges()) {
         flushChanges();
-        // ブラウザに警告を表示
         e.preventDefault();
         e.returnValue = '保存されていない変更があります';
       }
     });
 
-    // オンライン/オフライン検出
     window.addEventListener('online', function() {
-      console.log('オンラインに復帰しました');
       updateSaveStatus('unsaved');
       if (ChangeQueue.hasChanges()) {
         scheduleSave();
@@ -187,7 +177,6 @@ const SaveManager = (function() {
     });
 
     window.addEventListener('offline', function() {
-      console.log('オフラインになりました');
       updateSaveStatus('offline');
     });
   }
@@ -198,33 +187,25 @@ const SaveManager = (function() {
     }
     periodicSaveTimer = setInterval(function() {
       if (ChangeQueue.hasChanges() && !isSaving) {
-        console.log('定期保存を実行します');
         flushChanges();
       }
     }, PERIODIC_SAVE_INTERVAL);
   }
 
-  function onInputChange(date, rowIndex, fieldName, value) {
-    // A層: 即座にlocalStorageに保存
-    DraftStore.saveDraft(date, rowIndex, fieldName, value);
-
-    // C層: 変更キューに追加
-    ChangeQueue.addChange(rowIndex, fieldName, value);
-
-    // 保存スケジュール
+  function onInputChange(date, memberName, fieldName, value) {
+    // A層: localStorage即座保存
+    DraftStore.saveDraft(date, memberName, fieldName, value);
+    // C層: キューに追加
+    ChangeQueue.addChange(memberName, fieldName, value);
     updateSaveStatus('unsaved');
     scheduleSave();
   }
 
   function scheduleSave() {
-    // 既存のタイマーをキャンセル
     ChangeQueue.clearPendingSave();
-
-    // 新しいタイマーをセット（デバウンス）
-    const timeoutId = setTimeout(function() {
+    var timeoutId = setTimeout(function() {
       flushChanges();
     }, AUTO_SAVE_DELAY);
-
     ChangeQueue.setPendingSave(timeoutId);
   }
 
@@ -232,8 +213,6 @@ const SaveManager = (function() {
     if (!ChangeQueue.hasChanges() || isSaving) {
       return;
     }
-
-    // オフライン時は保存しない
     if (!navigator.onLine) {
       updateSaveStatus('offline');
       return;
@@ -242,12 +221,9 @@ const SaveManager = (function() {
     isSaving = true;
     updateSaveStatus('saving');
 
-    const changes = ChangeQueue.getChanges();
-    const date = window.currentDate; // グローバルから取得
+    var changes = ChangeQueue.getChanges();
+    var date = App.getDate();
 
-    console.log('サーバーに保存します:', changes);
-
-    // B層: サーバーに一括送信
     google.script.run
       .withSuccessHandler(function(results) {
         onSaveSuccess(results);
@@ -255,29 +231,32 @@ const SaveManager = (function() {
       .withFailureHandler(function(error) {
         onSaveError(error);
       })
-      .api_applyPatch(date, changes);
+      .api_applyBoardPatch(date, changes);
   }
 
   function onSaveSuccess(results) {
-    console.log('保存成功:', results);
     isSaving = false;
+    if (!results) {
+      updateSaveStatus('error');
+      return;
+    }
 
-    // 保存成功した行のドラフトをクリア
+    var allSuccess = true;
     results.forEach(function(result) {
       if (result.success) {
-        DraftStore.clearDraft(window.currentDate, result.rowIndex);
-        ChangeQueue.clearRowChanges(result.rowIndex);
-
-        // UI更新
-        const tr = document.querySelector(`tr[data-row-index="${result.rowIndex}"]`);
-        if (tr && result.row) {
-          window.updateRowDisplay(tr, result.row);
+        DraftStore.clearDraft(App.getDate(), result.memberName);
+        ChangeQueue.clearMemberChanges(result.memberName);
+        // Update the board fields in the UI if data returned
+        if (result.data) {
+          App.updateBoardFields(result.memberName, result.data);
         }
+      } else {
+        allSuccess = false;
+        console.error('Save failed for ' + result.memberName + ':', result.error);
       }
     });
 
-    // すべて成功したらキューをクリア
-    if (results.every(r => r.success)) {
+    if (allSuccess) {
       ChangeQueue.clearChanges();
       updateSaveStatus('saved');
     } else {
@@ -286,11 +265,10 @@ const SaveManager = (function() {
   }
 
   function onSaveError(error) {
-    console.error('保存エラー:', error);
+    console.error('Save error:', error);
     isSaving = false;
     updateSaveStatus('error');
-
-    // リトライ（30秒後）
+    // Retry after 30s
     setTimeout(function() {
       if (ChangeQueue.hasChanges()) {
         flushChanges();
@@ -300,11 +278,10 @@ const SaveManager = (function() {
 
   function updateSaveStatus(status) {
     saveStatus = status;
-
-    const statusEl = document.getElementById('saveStatus');
+    var statusEl = document.getElementById('saveStatus');
     if (!statusEl) return;
 
-    const messages = {
+    var messages = {
       'saved': '保存済み',
       'saving': '保存中...',
       'unsaved': '未保存',
@@ -312,7 +289,7 @@ const SaveManager = (function() {
       'offline': 'オフライン'
     };
 
-    const classes = {
+    var classes = {
       'saved': 'save-status-saved',
       'saving': 'save-status-saving',
       'unsaved': 'save-status-unsaved',
@@ -332,549 +309,994 @@ const SaveManager = (function() {
   }
 
   return {
-    init,
-    onInputChange,
-    manualSave,
-    flushChanges
+    init: init,
+    onInputChange: onInputChange,
+    manualSave: manualSave,
+    flushChanges: flushChanges
   };
 })();
 
 // ========================================
-// メインアプリケーション
+// Helpers
 // ========================================
-(function() {
+var Helpers = (function() {
+  var DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'];
+
+  function formatDisplayDate(dateStr) {
+    if (!dateStr) return '';
+    var parts = dateStr.split('-');
+    var y = parseInt(parts[0], 10);
+    var m = parseInt(parts[1], 10);
+    var d = parseInt(parts[2], 10);
+    var dt = new Date(y, m - 1, d);
+    var dow = DAY_NAMES[dt.getDay()];
+    return m + '月' + d + '日（' + dow + '）';
+  }
+
+  function formatDisplayDateShort(dateStr) {
+    if (!dateStr) return '';
+    var parts = dateStr.split('-');
+    var m = parseInt(parts[1], 10);
+    var d = parseInt(parts[2], 10);
+    return m + '/' + d;
+  }
+
+  function getDayName(dayIndex) {
+    return DAY_NAMES[dayIndex] || '';
+  }
+
+  function addDays(dateStr, n) {
+    var parts = dateStr.split('-');
+    var dt = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    dt.setDate(dt.getDate() + n);
+    return formatDateISO(dt);
+  }
+
+  function formatDateISO(dt) {
+    var y = dt.getFullYear();
+    var m = ('0' + (dt.getMonth() + 1)).slice(-2);
+    var d = ('0' + dt.getDate()).slice(-2);
+    return y + '-' + m + '-' + d;
+  }
+
+  function getWeekRange(dateStr) {
+    var parts = dateStr.split('-');
+    var dt = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    var day = dt.getDay();
+    // Monday start: if Sunday (0), go back 6; else go back (day-1)
+    var diff = day === 0 ? 6 : day - 1;
+    var monday = new Date(dt);
+    monday.setDate(dt.getDate() - diff);
+    var sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    return {
+      start: formatDateISO(monday),
+      end: formatDateISO(sunday)
+    };
+  }
+
+  function getMonthInfo(dateStr) {
+    var parts = dateStr.split('-');
+    return {
+      year: parseInt(parts[0], 10),
+      month: parseInt(parts[1], 10)
+    };
+  }
+
+  function todayISO() {
+    var now = new Date();
+    return formatDateISO(now);
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    var div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  return {
+    formatDisplayDate: formatDisplayDate,
+    formatDisplayDateShort: formatDisplayDateShort,
+    getDayName: getDayName,
+    addDays: addDays,
+    formatDateISO: formatDateISO,
+    getWeekRange: getWeekRange,
+    getMonthInfo: getMonthInfo,
+    todayISO: todayISO,
+    escapeHtml: escapeHtml
+  };
+})();
+
+// ========================================
+// App: Main Application
+// ========================================
+var App = (function() {
   'use strict';
 
-  // ========================================
-  // 状態管理
-  // ========================================
-  let currentDate = INITIAL_DATE;
-  let currentData = null;
+  // State
+  var currentDate = '';
+  var currentTab = 'today';
+  var members = [];
+  var memberIndexMap = {}; // name -> index (for colors)
+  var filterState = {}; // memberName -> boolean (true = visible)
+  var tabCache = {};
+  var isLoading = false;
+
+  // DOM refs
+  var els = {};
 
   // ========================================
-  // DOM要素
+  // Init
   // ========================================
-  const elements = {
-    dateInput: null,
-    reloadBtn: null,
-    clearAllBtn: null,
-    statusMessage: null,
-    loading: null,
-    tableContainer: null,
-    tableBody: null
-  };
-
-  // ========================================
-  // 初期化
-  // ========================================
-  document.addEventListener('DOMContentLoaded', init);
-
   function init() {
-    // DOM要素を取得
-    elements.dateInput = document.getElementById('dateInput');
-    elements.reloadBtn = document.getElementById('reloadBtn');
-    elements.clearAllBtn = document.getElementById('clearAllBtn');
-    elements.statusMessage = document.getElementById('statusMessage');
-    elements.loading = document.getElementById('loading');
-    elements.tableContainer = document.getElementById('tableContainer');
-    elements.tableBody = document.getElementById('tableBody');
+    currentDate = INITIAL_DATE || Helpers.todayISO();
+    currentTab = INITIAL_TAB || 'today';
 
-    // 日付入力を初期化
-    elements.dateInput.value = currentDate;
-
-    // グローバルアクセス用
-    window.currentDate = currentDate;
-    window.updateRowDisplay = updateRowDisplay;
-
-    // イベントリスナー
-    elements.dateInput.addEventListener('change', onDateChange);
-    elements.reloadBtn.addEventListener('click', loadData);
-    elements.clearAllBtn.addEventListener('click', clearAllRows);
-
-    // A+C+B SaveManager初期化
+    cacheDomElements();
+    setupEventListeners();
+    loadFilterState();
     SaveManager.init();
 
-    // 初期データ読み込み
-    loadData();
+    // Fetch initial data
+    showLoading(true);
+    google.script.run
+      .withSuccessHandler(onInitialData)
+      .withFailureHandler(onError)
+      .api_getInitialData();
+  }
+
+  function cacheDomElements() {
+    els.saveStatus = document.getElementById('saveStatus');
+    els.lastSync = document.getElementById('lastSync');
+    els.syncBtn = document.getElementById('syncBtn');
+    els.filterBar = document.getElementById('filterBar');
+    els.statusMessage = document.getElementById('statusMessage');
+    els.loading = document.getElementById('loading');
+
+    // Today
+    els.tabToday = document.getElementById('tabToday');
+    els.todayDate = document.getElementById('todayDate');
+    els.todayCards = document.getElementById('todayCards');
+    els.prevDay = document.getElementById('prevDay');
+    els.nextDay = document.getElementById('nextDay');
+    els.todayBtn = document.getElementById('todayBtn');
+
+    // Week
+    els.tabWeek = document.getElementById('tabWeek');
+    els.weekRange = document.getElementById('weekRange');
+    els.weekGrid = document.getElementById('weekGrid');
+    els.prevWeek = document.getElementById('prevWeek');
+    els.nextWeek = document.getElementById('nextWeek');
+    els.thisWeekBtn = document.getElementById('thisWeekBtn');
+
+    // Month
+    els.tabMonth = document.getElementById('tabMonth');
+    els.monthDisplay = document.getElementById('monthDisplay');
+    els.calGrid = document.getElementById('calGrid');
+    els.prevMonth = document.getElementById('prevMonth');
+    els.nextMonth = document.getElementById('nextMonth');
+  }
+
+  function setupEventListeners() {
+    // Tabs
+    var tabBtns = document.querySelectorAll('.tab-btn');
+    tabBtns.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        switchTab(btn.dataset.tab);
+      });
+    });
+
+    // Today nav
+    els.prevDay.addEventListener('click', function() {
+      currentDate = Helpers.addDays(currentDate, -1);
+      loadTodayView();
+    });
+    els.nextDay.addEventListener('click', function() {
+      currentDate = Helpers.addDays(currentDate, 1);
+      loadTodayView();
+    });
+    els.todayBtn.addEventListener('click', function() {
+      currentDate = Helpers.todayISO();
+      loadTodayView();
+    });
+
+    // Week nav
+    els.prevWeek.addEventListener('click', function() {
+      currentDate = Helpers.addDays(currentDate, -7);
+      loadWeekView();
+    });
+    els.nextWeek.addEventListener('click', function() {
+      currentDate = Helpers.addDays(currentDate, 7);
+      loadWeekView();
+    });
+    els.thisWeekBtn.addEventListener('click', function() {
+      currentDate = Helpers.todayISO();
+      loadWeekView();
+    });
+
+    // Month nav
+    els.prevMonth.addEventListener('click', function() {
+      navigateMonth(-1);
+    });
+    els.nextMonth.addEventListener('click', function() {
+      navigateMonth(1);
+    });
+
+    // Sync button
+    els.syncBtn.addEventListener('click', doSync);
   }
 
   // ========================================
-  // データ読み込み
+  // Initial Data
   // ========================================
-  function loadData() {
+  function onInitialData(data) {
+    if (!data) {
+      showLoading(false);
+      showStatus('初期データの取得に失敗しました', 'error');
+      return;
+    }
+
+    members = data.members || [];
+    memberIndexMap = {};
+    members.forEach(function(m, i) {
+      memberIndexMap[m.name] = i % 5;
+    });
+
+    if (data.lastSyncAt) {
+      updateSyncTime(data.lastSyncAt);
+    }
+
+    buildFilterBar();
+    switchTab(currentTab);
+  }
+
+  // ========================================
+  // Tab Switching
+  // ========================================
+  function switchTab(tab) {
+    currentTab = tab;
+
+    // Update tab buttons
+    document.querySelectorAll('.tab-btn').forEach(function(btn) {
+      btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+
+    // Show/hide content
+    els.tabToday.classList.toggle('hidden', tab !== 'today');
+    els.tabWeek.classList.toggle('hidden', tab !== 'week');
+    els.tabMonth.classList.toggle('hidden', tab !== 'month');
+
+    // Load data for active tab
+    if (tab === 'today') {
+      loadTodayView();
+    } else if (tab === 'week') {
+      loadWeekView();
+    } else if (tab === 'month') {
+      loadMonthView();
+    }
+  }
+
+  // ========================================
+  // Filter Bar
+  // ========================================
+  function buildFilterBar() {
+    els.filterBar.innerHTML = '';
+
+    // "All" button
+    var allBtn = document.createElement('button');
+    allBtn.className = 'filter-btn active';
+    allBtn.dataset.member = 'all';
+    allBtn.textContent = '全員';
+    allBtn.addEventListener('click', function() {
+      toggleAllFilter();
+    });
+    els.filterBar.appendChild(allBtn);
+
+    // Individual member buttons
+    members.forEach(function(m, i) {
+      var btn = document.createElement('button');
+      btn.className = 'filter-btn member-' + (i % 5);
+      btn.dataset.member = m.name;
+      btn.textContent = m.name;
+
+      var isVisible = filterState[m.name] !== false;
+      if (isVisible) {
+        btn.classList.add('member-active');
+      }
+
+      btn.addEventListener('click', function() {
+        toggleMemberFilter(m.name);
+      });
+      els.filterBar.appendChild(btn);
+    });
+
+    updateAllBtnState();
+  }
+
+  function toggleAllFilter() {
+    var allVisible = members.every(function(m) {
+      return filterState[m.name] !== false;
+    });
+
+    members.forEach(function(m) {
+      filterState[m.name] = !allVisible;
+    });
+
+    saveFilterState();
+    buildFilterBar();
+    applyFilter();
+  }
+
+  function toggleMemberFilter(name) {
+    filterState[name] = filterState[name] === false ? true : false;
+    saveFilterState();
+    buildFilterBar();
+    applyFilter();
+  }
+
+  function updateAllBtnState() {
+    var allBtn = els.filterBar.querySelector('[data-member="all"]');
+    if (!allBtn) return;
+    var allVisible = members.every(function(m) {
+      return filterState[m.name] !== false;
+    });
+    allBtn.classList.toggle('active', allVisible);
+  }
+
+  function isMemberVisible(name) {
+    return filterState[name] !== false;
+  }
+
+  function applyFilter() {
+    // Apply to today view cards
+    var cards = document.querySelectorAll('.member-card');
+    cards.forEach(function(card) {
+      var name = card.dataset.member;
+      card.classList.toggle('hidden', !isMemberVisible(name));
+    });
+
+    // Apply to week view rows
+    var rows = document.querySelectorAll('.week-member-row');
+    rows.forEach(function(row) {
+      var name = row.dataset.member;
+      row.classList.toggle('hidden', !isMemberVisible(name));
+    });
+  }
+
+  function saveFilterState() {
+    try {
+      localStorage.setItem('teamSchedule_filter', JSON.stringify(filterState));
+    } catch (e) { /* ignore */ }
+  }
+
+  function loadFilterState() {
+    try {
+      var data = localStorage.getItem('teamSchedule_filter');
+      if (data) {
+        filterState = JSON.parse(data);
+      }
+    } catch (e) {
+      filterState = {};
+    }
+  }
+
+  // ========================================
+  // TODAY VIEW
+  // ========================================
+  function loadTodayView() {
+    els.todayDate.textContent = Helpers.formatDisplayDate(currentDate);
     showLoading(true);
-    hideStatus();
 
     google.script.run
-      .withSuccessHandler(onDataLoaded)
-      .withFailureHandler(onError)
-      .getDayData(currentDate);
-  }
-
-  function onDataLoaded(data) {
-    currentData = data;
-    renderTable(data.rows);
-
-    // クラッシュリカバリ: ドラフトを復元
-    restoreDrafts(data.rows);
-
-    showLoading(false);
-    showStatus('データを読み込みました', 'success', 2000);
-  }
-
-  // ========================================
-  // クラッシュリカバリ: ドラフト復元
-  // ========================================
-  function restoreDrafts(rows) {
-    const drafts = DraftStore.loadAllDrafts(currentDate);
-
-    rows.forEach(function(row) {
-      const draft = drafts[row.rowIndex];
-      if (draft) {
-        const tr = elements.tableBody.querySelector(`tr[data-row-index="${row.rowIndex}"]`);
-        if (tr) {
-          const inputs = tr.querySelectorAll('input');
-
-          // ドラフトの値で上書き
-          if (draft.destination !== undefined) {
-            inputs[0].value = draft.destination;
-            ChangeQueue.addChange(row.rowIndex, 'destination', draft.destination);
-          }
-          if (draft.startTime !== undefined) {
-            inputs[1].value = draft.startTime;
-            ChangeQueue.addChange(row.rowIndex, 'startTime', draft.startTime);
-          }
-          if (draft.endTime !== undefined) {
-            inputs[2].value = draft.endTime;
-            ChangeQueue.addChange(row.rowIndex, 'endTime', draft.endTime);
-          }
-          if (draft.note !== undefined) {
-            inputs[3].value = draft.note;
-            ChangeQueue.addChange(row.rowIndex, 'note', draft.note);
-          }
-
-          console.log(`ドラフトを復元しました: 行${row.rowIndex}`);
+      .withSuccessHandler(function(data) {
+        showLoading(false);
+        if (data) {
+          renderTodayView(data);
+          if (data.lastSyncAt) updateSyncTime(data.lastSyncAt);
+        } else {
+          showStatus('データを取得できませんでした', 'error', 3000);
         }
+      })
+      .withFailureHandler(function(err) {
+        showLoading(false);
+        onError(err);
+      })
+      .api_getTodayView(currentDate);
+  }
+
+  function renderTodayView(data) {
+    els.todayCards.innerHTML = '';
+
+    if (!data.members || data.members.length === 0) {
+      els.todayCards.innerHTML = '<div class="no-events" style="padding:24px;text-align:center;">メンバーが登録されていません</div>';
+      return;
+    }
+
+    data.members.forEach(function(member) {
+      var idx = memberIndexMap[member.name] !== undefined ? memberIndexMap[member.name] : 0;
+      var card = createMemberCard(member, idx, data.date || currentDate);
+      els.todayCards.appendChild(card);
+    });
+
+    // Restore drafts
+    restoreDrafts(currentDate);
+    applyFilter();
+  }
+
+  function createMemberCard(member, colorIdx, date) {
+    var card = document.createElement('div');
+    card.className = 'member-card member-' + colorIdx + ' fade-in';
+    card.dataset.member = member.name;
+
+    // Header
+    var header = document.createElement('div');
+    header.className = 'member-card-header';
+
+    var badge = document.createElement('div');
+    badge.className = 'member-badge';
+    badge.textContent = member.name.charAt(0);
+    badge.style.background = 'var(--member-color)';
+    header.appendChild(badge);
+
+    var nameEl = document.createElement('div');
+    nameEl.className = 'member-name';
+    nameEl.textContent = member.name;
+    header.appendChild(nameEl);
+
+    card.appendChild(header);
+
+    // Calendar not configured notice
+    if (!member.hasCalendar && (!member.events || member.events.length === 0)) {
+      var notice = document.createElement('div');
+      notice.className = 'no-calendar-notice';
+      notice.textContent = 'カレンダー未設定';
+      card.appendChild(notice);
+    }
+
+    // Events section
+    var eventsSection = document.createElement('div');
+    eventsSection.className = 'events-section';
+
+    if (member.events && member.events.length > 0) {
+      var evTitle = document.createElement('div');
+      evTitle.className = 'events-section-title';
+      evTitle.textContent = 'カレンダー予定';
+      eventsSection.appendChild(evTitle);
+
+      // Sort events: all-day first, then by start_time
+      var sortedEvents = member.events.slice().sort(function(a, b) {
+        if (a.all_day && !b.all_day) return -1;
+        if (!a.all_day && b.all_day) return 1;
+        return (a.start_time || '').localeCompare(b.start_time || '');
+      });
+
+      sortedEvents.forEach(function(ev) {
+        var item = document.createElement('div');
+        item.className = 'event-item';
+        if (ev.color_key) {
+          item.classList.add('event-color-' + ev.color_key);
+        }
+
+        if (ev.all_day) {
+          var badgeEl = document.createElement('span');
+          badgeEl.className = 'event-badge-allday';
+          badgeEl.textContent = '終日';
+          item.appendChild(badgeEl);
+        } else {
+          var timeEl = document.createElement('span');
+          timeEl.className = 'event-time';
+          var startT = ev.start_time ? ev.start_time.substring(0, 5) : '';
+          var endT = ev.end_time ? ev.end_time.substring(0, 5) : '';
+          timeEl.textContent = startT + ' - ' + endT;
+          item.appendChild(timeEl);
+        }
+
+        var titleEl = document.createElement('span');
+        titleEl.className = 'event-title';
+        titleEl.textContent = ev.title || '(無題)';
+        item.appendChild(titleEl);
+
+        if (ev.memo) {
+          var memoEl = document.createElement('span');
+          memoEl.className = 'event-memo';
+          memoEl.textContent = ev.memo;
+          memoEl.title = ev.memo;
+          item.appendChild(memoEl);
+        }
+
+        eventsSection.appendChild(item);
+      });
+    } else if (member.hasCalendar) {
+      var noEv = document.createElement('div');
+      noEv.className = 'no-events';
+      noEv.textContent = '予定なし';
+      eventsSection.appendChild(noEv);
+    }
+
+    card.appendChild(eventsSection);
+
+    // Board (manual input) section
+    var boardSection = document.createElement('div');
+    boardSection.className = 'board-section';
+
+    var boardTitle = document.createElement('div');
+    boardTitle.className = 'board-section-title';
+    boardTitle.textContent = '記入欄';
+    boardSection.appendChild(boardTitle);
+
+    var fields = document.createElement('div');
+    fields.className = 'board-fields';
+
+    var board = member.board || {};
+
+    fields.appendChild(createBoardField('location', '大まかな場所', 'text', board.location || '', date, member.name));
+    fields.appendChild(createBoardField('returnTime', '帰社予定', 'time', board.returnTime || '', date, member.name));
+    fields.appendChild(createBoardField('notes', '備考', 'text', board.notes || '', date, member.name));
+
+    boardSection.appendChild(fields);
+    card.appendChild(boardSection);
+
+    return card;
+  }
+
+  function createBoardField(fieldName, labelText, inputType, value, date, memberName) {
+    var field = document.createElement('div');
+    field.className = 'board-field';
+
+    var label = document.createElement('label');
+    label.textContent = labelText;
+    field.appendChild(label);
+
+    var input = document.createElement('input');
+    input.type = inputType;
+    input.name = fieldName;
+    input.value = value;
+    input.dataset.member = memberName;
+    input.dataset.field = fieldName;
+
+    // A+C+B: input event
+    input.addEventListener('input', function(e) {
+      SaveManager.onInputChange(date, memberName, fieldName, e.target.value);
+    });
+
+    input.addEventListener('change', function(e) {
+      SaveManager.onInputChange(date, memberName, fieldName, e.target.value);
+    });
+
+    // Enter key -> manual save
+    input.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        SaveManager.manualSave();
       }
     });
 
-    // ドラフトがある場合は自動保存をスケジュール
+    field.appendChild(input);
+    return field;
+  }
+
+  function restoreDrafts(date) {
+    var drafts = DraftStore.loadAllDrafts(date);
+    var draftMembers = Object.keys(drafts);
+    if (draftMembers.length === 0) return;
+
+    draftMembers.forEach(function(memberName) {
+      var draft = drafts[memberName];
+      if (!draft) return;
+
+      var card = document.querySelector('.member-card[data-member="' + CSS.escape(memberName) + '"]');
+      if (!card) return;
+
+      ['location', 'returnTime', 'notes'].forEach(function(field) {
+        if (draft[field] !== undefined) {
+          var input = card.querySelector('input[data-field="' + field + '"]');
+          if (input) {
+            input.value = draft[field];
+            ChangeQueue.addChange(memberName, field, draft[field]);
+          }
+        }
+      });
+    });
+
     if (ChangeQueue.hasChanges()) {
       SaveManager.flushChanges();
     }
   }
 
-  // ========================================
-  // 日付変更
-  // ========================================
-  function onDateChange(e) {
-    currentDate = e.target.value;
-    window.currentDate = currentDate; // グローバル更新
-    loadData();
-  }
+  function updateBoardFields(memberName, data) {
+    var card = document.querySelector('.member-card[data-member="' + CSS.escape(memberName) + '"]');
+    if (!card || !data) return;
 
-  // ========================================
-  // テーブル描画
-  // ========================================
-  function renderTable(rows) {
-    elements.tableBody.innerHTML = '';
-
-    rows.forEach(row => {
-      const tr = createTableRow(row);
-      // 名前がない行は非表示（ホワイトボードに合わせる）
-      if (tr) {
-        elements.tableBody.appendChild(tr);
+    ['location', 'returnTime', 'notes'].forEach(function(field) {
+      if (data[field] !== undefined) {
+        var input = card.querySelector('input[data-field="' + field + '"]');
+        if (input) {
+          input.value = data[field] || '';
+        }
       }
     });
-
-    elements.tableContainer.classList.remove('hidden');
-    elements.tableContainer.classList.add('fade-in');
-  }
-
-  function createTableRow(row) {
-    // 名前がない行はスキップ（ホワイトボードに合わせる）
-    if (!row.name || row.name.trim() === '') {
-      return null;
-    }
-
-    const tr = document.createElement('tr');
-    tr.dataset.rowIndex = row.rowIndex;
-
-    // ステータスに応じたクラス
-    tr.className = getRowClass(row);
-
-    // 名前セル（編集不可）
-    const nameTd = document.createElement('td');
-    nameTd.className = 'name-cell';
-    nameTd.textContent = row.name || '';
-    tr.appendChild(nameTd);
-
-    // 行先（プレースホルダなし、cell-input + destination）
-    tr.appendChild(createInputCell('destination', row.destination, '', 'destination'));
-
-    // 出社日（日付ピッカー、date-cell）
-    tr.appendChild(createDateInputCell('startTime', row.startTime, 'date-cell'));
-
-    // 帰社時刻（時刻入力、time-cell）
-    tr.appendChild(createTimeInputCell('endTime', row.endTime, 'time-cell'));
-
-    // 備考（プレースホルダなし、note-cell）
-    tr.appendChild(createInputCell('note', row.note, '', 'note-cell'));
-
-    // 操作ボタン（保存・クリア）
-    const actionTd = document.createElement('td');
-    actionTd.className = 'action-cell';
-
-    const saveBtn = document.createElement('button');
-    saveBtn.className = 'save-btn';
-    saveBtn.textContent = '保存';
-    saveBtn.addEventListener('click', () => {
-      // A+C+B: 即座に保存（デバウンスをスキップ）
-      SaveManager.manualSave();
-    });
-    actionTd.appendChild(saveBtn);
-
-    const clearBtn = document.createElement('button');
-    clearBtn.className = 'clear-btn';
-    clearBtn.textContent = 'クリア';
-    clearBtn.addEventListener('click', () => clearRow(row.rowIndex));
-    actionTd.appendChild(clearBtn);
-
-    tr.appendChild(actionTd);
-
-    return tr;
-  }
-
-  function createInputCell(fieldName, value, placeholder, tdClass) {
-    const td = document.createElement('td');
-    if (tdClass) {
-      td.className = tdClass;
-    }
-
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'cell-input' + (fieldName === 'destination' ? ' destination' : '');
-    input.name = fieldName;
-    input.value = value || '';
-    if (placeholder) {
-      input.placeholder = placeholder;
-    }
-
-    // A+C+B: 入力時に即座に保存（auto-save）
-    input.addEventListener('input', (e) => {
-      const row = e.target.closest('tr');
-      const rowIndex = parseInt(row.dataset.rowIndex);
-      SaveManager.onInputChange(currentDate, rowIndex, fieldName, e.target.value);
-    });
-
-    // Enterキーで即座に保存
-    input.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        SaveManager.manualSave();
-      }
-    });
-
-    td.appendChild(input);
-    return td;
-  }
-
-  function createDateInputCell(fieldName, value, tdClass) {
-    const td = document.createElement('td');
-    if (tdClass) {
-      td.className = tdClass;
-    }
-
-    const input = document.createElement('input');
-    input.type = 'date';  // 日付ピッカー
-    input.className = 'cell-input';
-    input.name = fieldName;
-    input.value = value || '';
-
-    // A+C+B: 入力時に即座に保存（auto-save）
-    input.addEventListener('input', (e) => {
-      const row = e.target.closest('tr');
-      const rowIndex = parseInt(row.dataset.rowIndex);
-      SaveManager.onInputChange(currentDate, rowIndex, fieldName, e.target.value);
-    });
-
-    input.addEventListener('change', (e) => {
-      const row = e.target.closest('tr');
-      const rowIndex = parseInt(row.dataset.rowIndex);
-      SaveManager.onInputChange(currentDate, rowIndex, fieldName, e.target.value);
-    });
-
-    // Enterキーで即座に保存
-    input.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        SaveManager.manualSave();
-      }
-    });
-
-    td.appendChild(input);
-    return td;
-  }
-
-  function createTimeInputCell(fieldName, value, tdClass) {
-    const td = document.createElement('td');
-    if (tdClass) {
-      td.className = tdClass;
-    }
-
-    const input = document.createElement('input');
-    input.type = 'time';  // タイムピッカー（プルダウン＋手動入力可能）
-    input.className = 'cell-input';
-    input.name = fieldName;
-    input.value = value || '';
-
-    // A+C+B: 入力時に即座に保存（auto-save）
-    input.addEventListener('input', (e) => {
-      const row = e.target.closest('tr');
-      const rowIndex = parseInt(row.dataset.rowIndex);
-      SaveManager.onInputChange(currentDate, rowIndex, fieldName, e.target.value);
-    });
-
-    input.addEventListener('change', (e) => {
-      const row = e.target.closest('tr');
-      const rowIndex = parseInt(row.dataset.rowIndex);
-      SaveManager.onInputChange(currentDate, rowIndex, fieldName, e.target.value);
-    });
-
-    // Enterキーで即座に保存
-    input.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        SaveManager.manualSave();
-      }
-    });
-
-    td.appendChild(input);
-    return td;
-  }
-
-  function getRowClass(row) {
-    // 名前がない行は空行
-    if (!row.name || row.name.trim() === '') {
-      return 'row-empty';
-    }
-
-    // 帰社時刻がある → 日帰り（緑色）
-    if (row.endTime && row.endTime.trim() !== '') {
-      return 'row-back';  // 緑色
-    }
-
-    // 出社日があって帰社時刻がない → 宿泊あり（黄色）
-    if (row.startTime && row.startTime.trim() !== '') {
-      return 'row-out';  // 黄色
-    }
-
-    // どちらもない → 通常
-    return 'row-none';
   }
 
   // ========================================
-  // 時刻入力の自動整形
+  // WEEK VIEW
   // ========================================
-  function formatTimeInput(value) {
-    if (!value || value.trim() === '') {
-      return '';
-    }
+  function loadWeekView() {
+    var range = Helpers.getWeekRange(currentDate);
+    var startDisplay = Helpers.formatDisplayDateShort(range.start);
+    var endDisplay = Helpers.formatDisplayDateShort(range.end);
+    els.weekRange.textContent = startDisplay + ' - ' + endDisplay;
 
-    const trimmed = value.trim();
+    showLoading(true);
 
-    // すでに正しい形式なら何もしない
-    if (/^([01]?\d|2[0-3]):[0-5]\d$/.test(trimmed)) {
-      // HH:MM形式に整形（1桁の時は0埋め）
-      const match = trimmed.match(/^(\d{1,2}):(\d{2})$/);
-      if (match) {
-        const hours = match[1].padStart(2, '0');
-        const minutes = match[2];
-        return hours + ':' + minutes;
-      }
-      return trimmed;
-    }
-
-    // H:M形式（例: 9:5）を HH:MM に変換
-    const match = trimmed.match(/^(\d{1,2}):(\d{1,2})$/);
-    if (match) {
-      const hours = parseInt(match[1]);
-      const minutes = parseInt(match[2]);
-
-      // 時間のバリデーション
-      if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
-        return hours.toString().padStart(2, '0') + ':' + minutes.toString().padStart(2, '0');
-      }
-    }
-
-    // 整形できない場合はそのまま返す（バリデーションエラーは保存時に出す）
-    return null;
+    google.script.run
+      .withSuccessHandler(function(data) {
+        showLoading(false);
+        if (data) {
+          renderWeekView(data);
+          if (data.lastSyncAt) updateSyncTime(data.lastSyncAt);
+        } else {
+          showStatus('週間データを取得できませんでした', 'error', 3000);
+        }
+      })
+      .withFailureHandler(function(err) {
+        showLoading(false);
+        onError(err);
+      })
+      .api_getWeekView(currentDate);
   }
 
-  // ========================================
-  // 全行クリア
-  // ========================================
-  function clearAllRows() {
-    if (!confirm('すべての行の情報をクリアしますか？（名前以外）\n\nこの操作は取り消せません。')) {
+  function renderWeekView(data) {
+    els.weekGrid.innerHTML = '';
+
+    if (!data.days || data.days.length === 0) {
+      els.weekGrid.innerHTML = '<div class="no-events" style="padding:24px;text-align:center;">データがありません</div>';
       return;
     }
 
-    const rows = elements.tableBody.querySelectorAll('tr');
-    if (rows.length === 0) {
-      showStatus('クリアする行がありません', 'info', 2000);
-      return;
-    }
+    var memberList = data.members || members;
+    var today = Helpers.todayISO();
 
-    // すべてクリアボタンを無効化
-    elements.clearAllBtn.disabled = true;
-    elements.clearAllBtn.textContent = 'クリア中...';
+    var table = document.createElement('table');
+    table.className = 'week-grid';
 
-    // A+C+B: すべての行の値をクリア
-    rows.forEach((tr) => {
-      const rowIndex = parseInt(tr.dataset.rowIndex);
-      const inputs = tr.querySelectorAll('input');
+    // Header row
+    var thead = document.createElement('thead');
+    var headerRow = document.createElement('tr');
+    var thName = document.createElement('th');
+    thName.textContent = 'メンバー';
+    thName.style.minWidth = '90px';
+    headerRow.appendChild(thName);
 
-      // 入力フィールドを空にする
-      inputs[0].value = '';  // 行先
-      inputs[1].value = '';  // 出社日
-      inputs[2].value = '';  // 帰社時刻
-      inputs[3].value = '';  // 備考
+    data.days.forEach(function(day) {
+      var th = document.createElement('th');
+      var dayNum = Helpers.getDayName(day.dayOfWeek);
+      var shortDate = Helpers.formatDisplayDateShort(day.date);
+      th.innerHTML = Helpers.escapeHtml(shortDate) + '<br>' + Helpers.escapeHtml(dayNum);
 
-      // A+C+B: 変更をキューに追加
-      SaveManager.onInputChange(currentDate, rowIndex, 'destination', '');
-      SaveManager.onInputChange(currentDate, rowIndex, 'startTime', '');
-      SaveManager.onInputChange(currentDate, rowIndex, 'endTime', '');
-      SaveManager.onInputChange(currentDate, rowIndex, 'note', '');
+      if (day.dayOfWeek === 0 || day.dayOfWeek === 6) {
+        th.classList.add('weekend');
+      }
+      if (day.date === today) {
+        th.classList.add('today-col');
+      }
+      headerRow.appendChild(th);
     });
 
-    // 即座に保存
-    SaveManager.manualSave();
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
 
-    // ボタンを元に戻す
-    setTimeout(() => {
-      elements.clearAllBtn.disabled = false;
-      elements.clearAllBtn.textContent = 'すべてクリア';
-      showStatus('すべての行をクリアしました', 'success', 2000);
-    }, 1000);
+    // Body rows (one per member)
+    var tbody = document.createElement('tbody');
+
+    memberList.forEach(function(m, mi) {
+      var tr = document.createElement('tr');
+      tr.className = 'week-member-row';
+      tr.dataset.member = m.name;
+
+      var idx = memberIndexMap[m.name] !== undefined ? memberIndexMap[m.name] : (mi % 5);
+
+      var tdName = document.createElement('td');
+      tdName.className = 'member-name-cell member-' + idx;
+      tdName.textContent = m.name;
+      tr.appendChild(tdName);
+
+      data.days.forEach(function(day) {
+        var td = document.createElement('td');
+        if (day.date === today) {
+          td.classList.add('today-col');
+        }
+
+        // Events for this member on this day
+        var dayEvents = (day.events && day.events[m.name]) ? day.events[m.name] : [];
+        var dayBoard = (day.board && day.board[m.name]) ? day.board[m.name] : null;
+
+        dayEvents.forEach(function(ev) {
+          var evDiv = document.createElement('div');
+          evDiv.className = 'week-event-item';
+          var prefix = ev.all_day ? '終日' : (ev.start_time ? ev.start_time.substring(0, 5) : '');
+          evDiv.textContent = (prefix ? prefix + ' ' : '') + (ev.title || '');
+          evDiv.title = (prefix ? prefix + ' ' : '') + (ev.title || '');
+          td.appendChild(evDiv);
+        });
+
+        // Board info
+        if (dayBoard && (dayBoard.location || dayBoard.returnTime)) {
+          var boardDiv = document.createElement('div');
+          boardDiv.className = 'week-board-info';
+          var parts = [];
+          if (dayBoard.location) parts.push(dayBoard.location);
+          if (dayBoard.returnTime) parts.push(dayBoard.returnTime);
+          boardDiv.textContent = parts.join(' / ');
+          boardDiv.title = parts.join(' / ');
+          td.appendChild(boardDiv);
+        }
+
+        // Click to navigate to day
+        td.addEventListener('click', function() {
+          currentDate = day.date;
+          switchTab('today');
+        });
+
+        tr.appendChild(td);
+      });
+
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    els.weekGrid.appendChild(table);
+
+    applyFilter();
   }
 
   // ========================================
-  // 行クリア
+  // MONTH VIEW
   // ========================================
-  function clearRow(rowIndex) {
-    if (!confirm('この行の情報をクリアしますか？（名前以外）')) {
-      return;
+  function loadMonthView() {
+    var info = Helpers.getMonthInfo(currentDate);
+    els.monthDisplay.textContent = info.year + '年' + info.month + '月';
+
+    showLoading(true);
+
+    google.script.run
+      .withSuccessHandler(function(data) {
+        showLoading(false);
+        if (data) {
+          renderMonthView(data);
+        } else {
+          showStatus('月間データを取得できませんでした', 'error', 3000);
+        }
+      })
+      .withFailureHandler(function(err) {
+        showLoading(false);
+        onError(err);
+      })
+      .api_getMonthView(info.year, info.month);
+  }
+
+  function navigateMonth(delta) {
+    var info = Helpers.getMonthInfo(currentDate);
+    var newMonth = info.month + delta;
+    var newYear = info.year;
+
+    if (newMonth < 1) {
+      newMonth = 12;
+      newYear--;
+    } else if (newMonth > 12) {
+      newMonth = 1;
+      newYear++;
     }
 
-    const tr = elements.tableBody.querySelector(`tr[data-row-index="${rowIndex}"]`);
-    if (!tr) return;
-
-    // 入力フィールドを空にする
-    const inputs = tr.querySelectorAll('input');
-    inputs[0].value = '';  // 行先
-    inputs[1].value = '';  // 出社日
-    inputs[2].value = '';  // 帰社時刻
-    inputs[3].value = '';  // 備考
-
-    // A+C+B: 空の値で各フィールドを更新
-    SaveManager.onInputChange(currentDate, rowIndex, 'destination', '');
-    SaveManager.onInputChange(currentDate, rowIndex, 'startTime', '');
-    SaveManager.onInputChange(currentDate, rowIndex, 'endTime', '');
-    SaveManager.onInputChange(currentDate, rowIndex, 'note', '');
-
-    // 即座に保存
-    SaveManager.manualSave();
+    currentDate = newYear + '-' + ('0' + newMonth).slice(-2) + '-01';
+    loadMonthView();
   }
 
-  // ========================================
-  // 行表示更新（A+C+B SaveManagerから使用）
-  // ========================================
-  function updateRowDisplay(tr, row) {
-    // 入力値を更新
-    const inputs = tr.querySelectorAll('input');
-    inputs[0].value = row.destination || '';
-    inputs[1].value = row.startTime || '';
-    inputs[2].value = row.endTime || '';
-    inputs[3].value = row.note || '';
+  function renderMonthView(data) {
+    els.calGrid.innerHTML = '';
 
-    // クラスを更新
-    tr.className = getRowClass(row);
-  }
+    var year = data.year;
+    var month = data.month;
+    var events = data.events || {};
+    var memberList = data.members || members;
+    var today = Helpers.todayISO();
 
-  // ========================================
-  // クライアント側バリデーション
-  // ========================================
-  function validatePayload(payload) {
-    const errors = [];
+    var table = document.createElement('table');
+    table.className = 'cal-table';
 
-    // 出社日の形式チェック（YYYY-MM-DD）
-    if (payload.startTime && !isValidDateFormat(payload.startTime)) {
-      errors.push('出社日の形式が不正です（例: 2025-12-25）');
+    // Day-of-week header (Sun start, Japanese style)
+    var dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+    var thead = document.createElement('thead');
+    var headerRow = document.createElement('tr');
+    dayNames.forEach(function(dn, i) {
+      var th = document.createElement('th');
+      th.textContent = dn;
+      if (i === 0) th.classList.add('sun');
+      if (i === 6) th.classList.add('sat');
+      headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    // Build calendar grid
+    var firstDay = new Date(year, month - 1, 1);
+    var startDow = firstDay.getDay(); // 0=Sun
+    var daysInMonth = new Date(year, month, 0).getDate();
+
+    // Previous month fill
+    var prevMonthDays = new Date(year, month - 1, 0).getDate();
+
+    var tbody = document.createElement('tbody');
+    var row = document.createElement('tr');
+    var cellCount = 0;
+
+    // Fill previous month cells
+    for (var p = startDow - 1; p >= 0; p--) {
+      var td = document.createElement('td');
+      td.className = 'other-month';
+      var dayNum = document.createElement('div');
+      dayNum.className = 'cal-day-num';
+      dayNum.textContent = prevMonthDays - p;
+      td.appendChild(dayNum);
+      row.appendChild(td);
+      cellCount++;
     }
 
-    // 帰社時刻の形式チェック（HH:MM）
-    if (payload.endTime && !isValidTimeFormat(payload.endTime)) {
-      errors.push('帰社時刻の形式が不正です（例: 17:30 または 09:00）');
+    // Current month cells
+    for (var d = 1; d <= daysInMonth; d++) {
+      if (cellCount === 7) {
+        tbody.appendChild(row);
+        row = document.createElement('tr');
+        cellCount = 0;
+      }
+
+      var td = document.createElement('td');
+      var dateStr = year + '-' + ('0' + month).slice(-2) + '-' + ('0' + d).slice(-2);
+      var dt = new Date(year, month - 1, d);
+      var dow = dt.getDay();
+
+      if (dateStr === today) {
+        td.classList.add('today');
+      }
+
+      var dayNumEl = document.createElement('div');
+      dayNumEl.className = 'cal-day-num';
+      if (dow === 0) dayNumEl.classList.add('sun');
+      if (dow === 6) dayNumEl.classList.add('sat');
+      dayNumEl.textContent = d;
+      td.appendChild(dayNumEl);
+
+      // Colored dots for members with events
+      var dayEvents = events[dateStr];
+      if (dayEvents) {
+        var dots = document.createElement('div');
+        dots.className = 'cal-dots';
+
+        memberList.forEach(function(m) {
+          if (dayEvents[m.name] && dayEvents[m.name].length > 0 && isMemberVisible(m.name)) {
+            var idx = memberIndexMap[m.name] !== undefined ? memberIndexMap[m.name] : 0;
+            var dot = document.createElement('div');
+            dot.className = 'cal-dot member-' + idx;
+            dot.title = m.name;
+            dots.appendChild(dot);
+          }
+        });
+
+        td.appendChild(dots);
+      }
+
+      // Click to navigate
+      (function(clickDate) {
+        td.addEventListener('click', function() {
+          currentDate = clickDate;
+          switchTab('today');
+        });
+      })(dateStr);
+
+      row.appendChild(td);
+      cellCount++;
     }
 
-    if (errors.length > 0) {
-      return { valid: false, message: errors.join('\n') };
+    // Fill remaining cells with next month
+    var nextDay = 1;
+    while (cellCount < 7) {
+      var td = document.createElement('td');
+      td.className = 'other-month';
+      var dayNumEl = document.createElement('div');
+      dayNumEl.className = 'cal-day-num';
+      dayNumEl.textContent = nextDay++;
+      td.appendChild(dayNumEl);
+      row.appendChild(td);
+      cellCount++;
     }
-    return { valid: true, message: '' };
-  }
+    tbody.appendChild(row);
 
-  function isValidDateFormat(dateStr) {
-    if (!dateStr || dateStr.trim() === '') return true;
-    // YYYY-MM-DD形式をチェック
-    const pattern = /^\d{4}-\d{2}-\d{2}$/;
-    if (!pattern.test(dateStr.trim())) return false;
-
-    // 実際に有効な日付かチェック
-    const date = new Date(dateStr);
-    return !isNaN(date.getTime());
-  }
-
-  function isValidTimeFormat(timeStr) {
-    if (!timeStr || timeStr.trim() === '') return true;
-    const pattern = /^([0-9]|0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$/;
-    return pattern.test(timeStr.trim());
-  }
-
-  function normalizeTime(timeStr) {
-    if (!timeStr) return '';
-    const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})$/);
-    if (!match) return timeStr;
-    return match[1].padStart(2, '0') + ':' + match[2];
+    table.appendChild(tbody);
+    els.calGrid.appendChild(table);
   }
 
   // ========================================
-  // UI ヘルパー
+  // Sync
+  // ========================================
+  function doSync() {
+    els.syncBtn.classList.add('syncing');
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        els.syncBtn.classList.remove('syncing');
+        if (result && result.success) {
+          showStatus('同期完了: ' + (result.eventCount || 0) + '件の予定を取得', 'success', 3000);
+          if (result.timestamp) updateSyncTime(result.timestamp);
+          // Reload current tab
+          if (currentTab === 'today') loadTodayView();
+          else if (currentTab === 'week') loadWeekView();
+          else if (currentTab === 'month') loadMonthView();
+        } else {
+          var errMsg = (result && result.errors && result.errors.length > 0)
+            ? result.errors.map(function(e) { return e.member + ': ' + e.error; }).join(', ') : '同期に失敗しました';
+          showStatus(errMsg, 'error', 5000);
+        }
+      })
+      .withFailureHandler(function(err) {
+        els.syncBtn.classList.remove('syncing');
+        showStatus('同期エラー: ' + (err.message || err), 'error', 5000);
+      })
+      .api_syncNow();
+  }
+
+  function updateSyncTime(timestamp) {
+    if (!timestamp) return;
+    try {
+      var dt = new Date(timestamp);
+      var h = ('0' + dt.getHours()).slice(-2);
+      var m = ('0' + dt.getMinutes()).slice(-2);
+      els.lastSync.textContent = '最終同期: ' + h + ':' + m;
+    } catch (e) {
+      els.lastSync.textContent = '最終同期: --';
+    }
+  }
+
+  // ========================================
+  // UI Helpers
   // ========================================
   function showLoading(show) {
     if (show) {
-      elements.loading.classList.remove('hidden');
-      elements.tableContainer.classList.add('hidden');
+      els.loading.classList.remove('hidden');
     } else {
-      elements.loading.classList.add('hidden');
+      els.loading.classList.add('hidden');
     }
   }
 
   function showStatus(message, type, autoHideMs) {
-    elements.statusMessage.textContent = message;
-    elements.statusMessage.className = 'status-message ' + type;
-    elements.statusMessage.classList.remove('hidden');
+    els.statusMessage.textContent = message;
+    els.statusMessage.className = 'status-message ' + (type || 'info');
+    els.statusMessage.classList.remove('hidden');
 
     if (autoHideMs) {
-      setTimeout(hideStatus, autoHideMs);
+      setTimeout(function() {
+        els.statusMessage.classList.add('hidden');
+      }, autoHideMs);
     }
-  }
-
-  function hideStatus() {
-    elements.statusMessage.classList.add('hidden');
   }
 
   function onError(error) {
     showLoading(false);
-    showStatus('エラー: ' + error.message, 'error');
-    console.error('Error:', error);
+    var msg = error && error.message ? error.message : String(error);
+    showStatus('エラー: ' + msg, 'error', 8000);
+    console.error('App error:', error);
   }
 
+  // ========================================
+  // Public API
+  // ========================================
+  return {
+    init: init,
+    getDate: function() { return currentDate; },
+    updateBoardFields: updateBoardFields
+  };
 })();
+
+// ========================================
+// Bootstrap
+// ========================================
+document.addEventListener('DOMContentLoaded', App.init);
 </script>

@@ -4,79 +4,93 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <base target="_top">
-  <title>外出記入板</title>
+  <title>チームスケジュール</title>
   <?!= include('style'); ?>
 </head>
 <body>
-  <div class="container">
-    <!-- ヘッダー -->
+  <div class="app">
+    <!-- Header -->
     <header class="header">
       <div class="header-left">
-        <div class="lineworks-logo">LINE WORKS</div>
-        <h1 class="title">外出記入板</h1>
-      </div>
-      <div class="header-controls">
-        <div class="save-status save-status-saved" id="saveStatus">保存済み</div>
-        <div class="date-picker">
-          <label for="dateInput">日付:</label>
-          <input type="date" id="dateInput" />
+        <div>
+          <div class="header-title">チームスケジュール</div>
+          <div class="header-brand">SAKURAI DENSO</div>
         </div>
-        <button id="reloadBtn" class="btn btn-secondary" title="再読込">
-          <span class="btn-icon">↻</span> 再読込
-        </button>
-        <a href="<?= PORTAL_URL ?>" target="_top" class="portal-link">社内ポータルへ移動</a>
+      </div>
+      <div class="header-right">
+        <div class="save-status save-status-saved" id="saveStatus">保存済み</div>
+        <div class="sync-info">
+          <span class="sync-label" id="lastSync">最終同期: --</span>
+          <button class="btn-sync" id="syncBtn" title="今すぐ同期">↻</button>
+        </div>
+        <a class="header-portal-btn" href="<?= PORTAL_URL ?>" target="_blank" rel="noopener">
+          <span class="portal-icon">☰</span> SKD Portal
+        </a>
       </div>
     </header>
-    
-    <!-- ステータスメッセージ -->
+    <div class="gold-line"></div>
+
+    <!-- Tab Navigation -->
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="today">今日</button>
+      <button class="tab-btn" data-tab="week">今週</button>
+      <button class="tab-btn" data-tab="month">カレンダー</button>
+    </nav>
+
+    <!-- Member Filter Bar -->
+    <div class="filter-bar" id="filterBar">
+      <button class="filter-btn active" data-member="all">全員</button>
+    </div>
+
+    <!-- Status Message -->
     <div id="statusMessage" class="status-message hidden"></div>
-    
-    <!-- ローディング -->
-    <div id="loading" class="loading">
+
+    <!-- Loading -->
+    <div id="loading" class="loading hidden">
       <div class="spinner"></div>
       <span>読み込み中...</span>
     </div>
-    
-    <!-- メインテーブル -->
-    <div id="tableContainer" class="table-container hidden">
-      <table class="outing-table">
-        <thead>
-          <tr>
-            <th class="col-name">人員</th>
-            <th class="col-destination">行先</th>
-            <th class="col-date">出社日</th>
-            <th class="col-time">帰社時刻</th>
-            <th class="col-note">備考</th>
-            <th class="col-action">操作</th>
-          </tr>
-        </thead>
-        <tbody id="tableBody">
-          <!-- 動的に生成 -->
-        </tbody>
-      </table>
-    </div>
-    
-    <!-- 凡例とクリアボタン -->
-    <div class="legend-container">
-      <div class="legend">
-        <div class="legend-item">
-          <span class="legend-color legend-out"></span>
-          <span>宿泊あり（出社日あり・帰社時刻なし）</span>
-        </div>
-        <div class="legend-item">
-          <span class="legend-color legend-back"></span>
-          <span>日帰り（帰社時刻あり）</span>
-        </div>
+
+    <!-- Tab Contents -->
+    <div id="tabToday" class="tab-content">
+      <div class="date-nav" id="todayDateNav">
+        <button class="nav-btn" id="prevDay">◀</button>
+        <span class="date-display" id="todayDate"></span>
+        <button class="nav-btn" id="nextDay">▶</button>
+        <button class="nav-btn-text" id="todayBtn">今日</button>
       </div>
-      <button id="clearAllBtn" class="btn btn-danger">すべてクリア</button>
+      <div id="todayCards"></div>
+    </div>
+
+    <div id="tabWeek" class="tab-content hidden">
+      <div class="date-nav" id="weekDateNav">
+        <button class="nav-btn" id="prevWeek">◀</button>
+        <span class="date-display" id="weekRange"></span>
+        <button class="nav-btn" id="nextWeek">▶</button>
+        <button class="nav-btn-text" id="thisWeekBtn">今週</button>
+      </div>
+      <div class="week-grid-wrapper" id="weekGrid"></div>
+    </div>
+
+    <div id="tabMonth" class="tab-content hidden">
+      <div class="date-nav" id="monthDateNav">
+        <button class="nav-btn" id="prevMonth">◀</button>
+        <span class="date-display" id="monthDisplay"></span>
+        <button class="nav-btn" id="nextMonth">▶</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+
+    <!-- Footer -->
+    <div class="app-footer">
+      <span class="app-footer-gold">桜井電装</span> Team Schedule System
     </div>
   </div>
-  
-  <!-- 初期日付を埋め込み -->
+
   <script>
-    const INITIAL_DATE = '<?= initialDate ?>';
+    var INITIAL_DATE = <?!= JSON.stringify(initialDate) ?>;
+    var INITIAL_TAB = <?!= JSON.stringify(initialTab) ?>;
   </script>
-  
   <?!= include('ui.js'); ?>
 </body>
 </html>
