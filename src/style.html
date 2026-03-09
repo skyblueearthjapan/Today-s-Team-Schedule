@@ -174,46 +174,6 @@ body {
   50% { opacity: 0.6; }
 }
 
-/* ========================================
-   Sync Info
-   ======================================== */
-.sync-info {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.sync-label {
-  font-size: 10px;
-  opacity: 0.75;
-  white-space: nowrap;
-}
-
-.btn-sync {
-  width: 30px;
-  height: 30px;
-  border: 1px solid rgba(255,255,255,0.35);
-  border-radius: 50%;
-  background: rgba(255,255,255,0.15);
-  color: var(--white);
-  font-size: 16px;
-  cursor: pointer;
-  transition: background 0.2s, transform 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-sync:hover {
-  background: rgba(255,255,255,0.3);
-  transform: rotate(90deg);
-}
-
-.btn-sync.syncing {
-  animation: spinSync 1s linear infinite;
-  pointer-events: none;
-}
-
 @keyframes spinSync {
   to { transform: rotate(360deg); }
 }
@@ -954,10 +914,6 @@ body {
 
   .header-right {
     gap: 6px;
-  }
-
-  .sync-label {
-    display: none;
   }
 
   .tab-btn {

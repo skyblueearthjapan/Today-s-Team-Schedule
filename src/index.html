@@ -19,10 +19,6 @@
       </div>
       <div class="header-right">
         <div class="save-status save-status-saved" id="saveStatus">保存済み</div>
-        <div class="sync-info">
-          <span class="sync-label" id="lastSync">最終同期: --</span>
-          <button class="btn-sync" id="syncBtn" title="今すぐ同期">↻</button>
-        </div>
         <a class="header-portal-btn" href="<?= PORTAL_URL ?>" target="_blank" rel="noopener">
           <span class="portal-icon">☰</span> SKD Portal
         </a>
@@ -35,7 +31,7 @@
       <span class="sync-bar-icon">↻</span>
       <span class="sync-bar-text">メンバーのAIカレンダーと同期</span>
       <span class="sync-bar-time" id="syncBarTime"></span>
-      <button class="sync-bar-btn" id="syncBarBtn" onclick="doSyncFromBar()">同期する</button>
+      <button class="sync-bar-btn" id="syncBarBtn">同期する</button>
     </div>
 
     <!-- Tab Navigation -->

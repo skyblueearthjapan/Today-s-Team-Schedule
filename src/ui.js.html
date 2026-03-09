@@ -957,8 +957,8 @@ var App = (function() {
 
   function cacheDomElements() {
     els.saveStatus = document.getElementById('saveStatus');
-    els.lastSync = document.getElementById('lastSync');
-    els.syncBtn = document.getElementById('syncBtn');
+    els.lastSync = document.getElementById('syncBarTime');
+    els.syncBtn = document.getElementById('syncBarBtn');
     els.filterBar = document.getElementById('filterBar');
     els.statusMessage = document.getElementById('statusMessage');
     els.loading = document.getElementById('loading');
@@ -1901,17 +1901,16 @@ var App = (function() {
   // Sync
   // ========================================
   function doSync() {
-    els.syncBtn.classList.add('syncing');
     var syncBar = document.getElementById('syncBar');
-    var syncBarBtn = document.getElementById('syncBarBtn');
     if (syncBar) syncBar.classList.add('syncing');
-    if (syncBarBtn) { syncBarBtn.disabled = true; syncBarBtn.textContent = '同期中...'; }
+    els.syncBtn.disabled = true;
+    els.syncBtn.textContent = '同期中...';
 
     google.script.run
       .withSuccessHandler(function(result) {
-        els.syncBtn.classList.remove('syncing');
         if (syncBar) syncBar.classList.remove('syncing');
-        if (syncBarBtn) { syncBarBtn.disabled = false; syncBarBtn.textContent = '同期する'; }
+        els.syncBtn.disabled = false;
+        els.syncBtn.textContent = '同期する';
         if (result && result.success) {
           showStatus('同期完了: ' + (result.eventCount || 0) + '件の予定を取得', 'success', 3000);
           if (result.timestamp) updateSyncTime(result.timestamp);
@@ -1926,9 +1925,9 @@ var App = (function() {
         }
       })
       .withFailureHandler(function(err) {
-        els.syncBtn.classList.remove('syncing');
         if (syncBar) syncBar.classList.remove('syncing');
-        if (syncBarBtn) { syncBarBtn.disabled = false; syncBarBtn.textContent = '同期する'; }
+        els.syncBtn.disabled = false;
+        els.syncBtn.textContent = '同期する';
         showStatus('同期エラー: ' + (err.message || err), 'error', 5000);
       })
       .api_syncNow();
@@ -1940,10 +1939,7 @@ var App = (function() {
       var dt = new Date(timestamp);
       var h = ('0' + dt.getHours()).slice(-2);
       var m = ('0' + dt.getMinutes()).slice(-2);
-      var timeStr = h + ':' + m;
-      els.lastSync.textContent = '最終同期: ' + timeStr;
-      var syncBarTime = document.getElementById('syncBarTime');
-      if (syncBarTime) syncBarTime.textContent = '最終同期: ' + timeStr;
+      els.lastSync.textContent = '最終同期: ' + h + ':' + m;
     } catch (e) {
       els.lastSync.textContent = '最終同期: --';
     }
@@ -1995,11 +1991,6 @@ var App = (function() {
     }
   };
 })();
-
-// グローバル: 同期バーからの呼び出し
-function doSyncFromBar() {
-  App.doSync();
-}
 
 // ========================================
 // Bootstrap
