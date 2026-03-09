@@ -547,8 +547,8 @@ var EventModal = (function() {
     document.getElementById('formStartDate').value = data.start_date || state.dateStr || '';
     document.getElementById('formEndDate').value = data.end_date || data.start_date || state.dateStr || '';
     document.getElementById('formAllDay').checked = !!data.all_day;
-    document.getElementById('formStartTime').value = data.start_time || '';
-    document.getElementById('formEndTime').value = data.end_time || '';
+    setTimeSelectValue_(document.getElementById('formStartTime'), data.start_time || '');
+    setTimeSelectValue_(document.getElementById('formEndTime'), data.end_time || '');
     document.getElementById('formMemo').value = data.memo || '';
     document.getElementById('formError').classList.add('hidden');
 
@@ -759,6 +759,30 @@ function populateTimeSelect_(selectEl) {
       selectEl.appendChild(opt);
     }
   }
+}
+
+/** セレクトに値をセット。選択肢にない時刻は動的にoptionを追加 */
+function setTimeSelectValue_(selectEl, timeVal) {
+  if (!timeVal) { selectEl.value = ''; return; }
+  for (var i = 0; i < selectEl.options.length; i++) {
+    if (selectEl.options[i].value === timeVal) {
+      selectEl.value = timeVal;
+      return;
+    }
+  }
+  var newOpt = document.createElement('option');
+  newOpt.value = timeVal;
+  newOpt.textContent = timeVal;
+  var inserted = false;
+  for (var j = 1; j < selectEl.options.length; j++) {
+    if (timeVal < selectEl.options[j].value) {
+      selectEl.insertBefore(newOpt, selectEl.options[j]);
+      inserted = true;
+      break;
+    }
+  }
+  if (!inserted) selectEl.appendChild(newOpt);
+  selectEl.value = timeVal;
 }
 
 // ========================================
@@ -1417,7 +1441,7 @@ var App = (function() {
       input.dataset.member = memberName;
       input.dataset.field = fieldName;
       populateTimeSelect_(input);
-      input.value = value;
+      setTimeSelectValue_(input, value);
     } else {
       input = document.createElement('input');
       input.type = inputType;
