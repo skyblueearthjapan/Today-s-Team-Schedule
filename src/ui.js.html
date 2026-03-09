@@ -329,7 +329,8 @@ var EventModal = (function() {
     formType: null,
     editingEvent: null,
     personalEvents: [],
-    teamEvents: []
+    teamEvents: [],
+    allMembersEvents: {}
   };
 
 
@@ -407,6 +408,7 @@ var EventModal = (function() {
         if (data) {
           state.personalEvents = data.personalEvents || [];
           state.teamEvents = data.teamEvents || [];
+          state.allMembersEvents = data.allMembersEvents || {};
           renderEventList();
         }
       })
@@ -435,13 +437,37 @@ var EventModal = (function() {
       teamListEl.appendChild(createEventCard(ev, true));
     });
 
-    personalSection.classList.toggle('hidden', !state.memberName);
-    if (hasPersonal) {
-      state.personalEvents.forEach(function(ev) {
-        personalListEl.appendChild(createEventCard(ev, false));
-      });
-    } else if (state.memberName) {
-      personalListEl.innerHTML = '<div class="event-modal-empty" style="padding:16px;">予定なし</div>';
+    if (state.memberName) {
+      // 特定メンバー選択時: そのメンバーの個人予定のみ
+      personalSection.classList.remove('hidden');
+      if (hasPersonal) {
+        state.personalEvents.forEach(function(ev) {
+          personalListEl.appendChild(createEventCard(ev, false));
+        });
+      } else {
+        personalListEl.innerHTML = '<div class="event-modal-empty" style="padding:16px;">予定なし</div>';
+      }
+    } else {
+      // メンバー未指定時: 全メンバーの個人予定を表示
+      var allEvents = state.allMembersEvents || {};
+      var memberNames = Object.keys(allEvents);
+      var hasAnyPersonal = memberNames.length > 0;
+
+      personalSection.classList.toggle('hidden', !hasAnyPersonal);
+      if (hasAnyPersonal) {
+        memberNames.forEach(function(mName) {
+          var memberHeader = document.createElement('div');
+          memberHeader.className = 'modal-member-group-header';
+          memberHeader.textContent = mName;
+          personalListEl.appendChild(memberHeader);
+
+          allEvents[mName].forEach(function(ev) {
+            personalListEl.appendChild(createEventCard(ev, false));
+          });
+        });
+      }
+
+      hasPersonal = hasAnyPersonal;
     }
 
     emptyState.classList.toggle('hidden', hasTeam || hasPersonal || !!state.memberName);
@@ -1807,32 +1833,39 @@ var App = (function() {
       dayNumEl.textContent = d;
       td.appendChild(dayNumEl);
 
-      // Colored dots for members with events
+      // Event summary for this day
       var dayEvents = events[dateStr];
       if (dayEvents) {
-        var dots = document.createElement('div');
-        dots.className = 'cal-dots';
+        var eventsContainer = document.createElement('div');
+        eventsContainer.className = 'cal-events';
 
-        // Team event dot (gold star)
+        // Team events
         if (dayEvents['_TEAM_'] && dayEvents['_TEAM_'].length > 0) {
-          var teamDot = document.createElement('div');
-          teamDot.className = 'cal-dot';
-          teamDot.style.background = 'var(--gold-dark)';
-          teamDot.title = 'チーム予定';
-          dots.appendChild(teamDot);
+          dayEvents['_TEAM_'].forEach(function(ev) {
+            var evEl = document.createElement('div');
+            evEl.className = 'cal-event-item cal-event-team';
+            evEl.textContent = ev.title || '(チーム)';
+            evEl.title = (ev.start_time ? ev.start_time.substring(0, 5) + ' ' : '') + (ev.title || '');
+            eventsContainer.appendChild(evEl);
+          });
         }
 
+        // Member events
         memberList.forEach(function(m) {
           if (dayEvents[m.name] && dayEvents[m.name].length > 0 && isMemberVisible(m.name)) {
             var idx = memberIndexMap[m.name] !== undefined ? memberIndexMap[m.name] : 0;
-            var dot = document.createElement('div');
-            dot.className = 'cal-dot member-' + idx;
-            dot.title = m.name;
-            dots.appendChild(dot);
+            dayEvents[m.name].forEach(function(ev) {
+              var evEl = document.createElement('div');
+              evEl.className = 'cal-event-item cal-event-member member-' + idx;
+              var prefix = ev.start_time ? ev.start_time.substring(0, 5) + ' ' : '';
+              evEl.textContent = prefix + (ev.title || '');
+              evEl.title = m.name + ': ' + prefix + (ev.title || '');
+              eventsContainer.appendChild(evEl);
+            });
           }
         });
 
-        td.appendChild(dots);
+        td.appendChild(eventsContainer);
       }
 
       // Click to open event modal

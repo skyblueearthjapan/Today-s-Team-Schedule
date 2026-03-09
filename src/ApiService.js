@@ -241,17 +241,26 @@ function api_getDayDetail(dateStr, memberName) {
     date: dateStr,
     personalEvents: [],
     teamEvents: [],
+    allMembersEvents: {},
     board: { location: '', returnTime: '', notes: '' }
   };
 
-  // Personal events for this member
-  if (memberName) {
-    var allEvents = getTeamEventsForDate_(dateStr);
-    result.personalEvents = allEvents[memberName] || [];
+  var allEvents = getTeamEventsForDate_(dateStr);
 
-    // Board data
+  if (memberName) {
+    // 特定メンバー指定時
+    result.personalEvents = allEvents[memberName] || [];
     var boardData = getBoardDataForDate_(dateStr);
     result.board = boardData[memberName] || { location: '', returnTime: '', notes: '' };
+  } else {
+    // メンバー未指定時: 全メンバーの予定を返す
+    var settings = getSettings_();
+    settings.members.forEach(function(m) {
+      var evts = allEvents[m.name] || [];
+      if (evts.length > 0) {
+        result.allMembersEvents[m.name] = evts;
+      }
+    });
   }
 
   // Team events
