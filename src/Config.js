@@ -101,7 +101,7 @@ function formatDateVal_(value) {
 function formatTimeVal_(value) {
   if (value == null || value === '') return '';
   if (value instanceof Date) {
-    return Utilities.formatDate(value, TIMEZONE, 'HH:mm');
+    return Utilities.formatDate(value, 'GMT', 'HH:mm');
   }
   var s = String(value).trim();
   if (!s) return '';
