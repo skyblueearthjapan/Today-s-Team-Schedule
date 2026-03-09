@@ -534,8 +534,8 @@ var EventModal = (function() {
       badge.textContent = 'チーム';
       badge.classList.add('badge-team');
     } else {
-      badge.textContent = '予約';
-      badge.classList.add('badge-reservation');
+      badge.textContent = '個人';
+      badge.classList.add('badge-personal');
     }
 
     // 時刻セレクトを30分刻みで初期化
@@ -646,17 +646,17 @@ var EventModal = (function() {
       payload.event_id = state.editingEvent.event_id;
       google.script.run
         .withSuccessHandler(function(result) {
-          onSaveSuccess(result, true);
+          onSaveSuccess(result);
         })
         .withFailureHandler(onSaveError)
-        .api_updateEventReservation(state.memberName, payload);
+        .api_updatePersonalEvent(state.memberName, payload);
     } else {
       google.script.run
         .withSuccessHandler(function(result) {
-          onSaveSuccess(result, true);
+          onSaveSuccess(result);
         })
         .withFailureHandler(onSaveError)
-        .api_createEventReservation(state.memberName, payload);
+        .api_createPersonalEvent(state.memberName, payload);
     }
   }
 
@@ -676,21 +676,17 @@ var EventModal = (function() {
     } else if (state.editingEvent.event_id && state.memberName) {
       google.script.run
         .withSuccessHandler(function(result) {
-          onSaveSuccess(result, true);
+          onSaveSuccess(result);
         })
         .withFailureHandler(onSaveError)
-        .api_deleteEventReservation(state.memberName, state.editingEvent.event_id);
+        .api_deletePersonalEvent(state.memberName, state.editingEvent.event_id);
     }
   }
 
-  function onSaveSuccess(result, isReservation) {
+  function onSaveSuccess(result) {
     showModalLoading(false);
     if (result && result.success) {
-      if (isReservation) {
-        showToast(result.message || '予約を保存しました', 'reservation');
-      } else {
-        showToast(result.message || '保存しました', 'success');
-      }
+      showToast(result.message || '保存しました', 'success');
       close();
       App.reloadCurrentTab();
     } else {

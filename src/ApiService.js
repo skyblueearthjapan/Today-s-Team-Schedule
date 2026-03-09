@@ -199,34 +199,34 @@ function api_deleteTeamEvent(teamEventId) {
 }
 
 // ========================================
-// 個人予定予約API
+// 個人予定 直接書き込みAPI
 // ========================================
 
-function api_createEventReservation(memberName, eventData) {
+function api_createPersonalEvent(memberName, eventData) {
   var lock = LockService.getDocumentLock();
   if (!lock.tryLock(15000)) throw new Error('他のユーザーが更新中です');
   try {
-    return createReservation_(memberName, 'create', eventData);
+    return directCreateEvent_(memberName, eventData);
   } finally {
     lock.releaseLock();
   }
 }
 
-function api_updateEventReservation(memberName, eventData) {
+function api_updatePersonalEvent(memberName, eventData) {
   var lock = LockService.getDocumentLock();
   if (!lock.tryLock(15000)) throw new Error('他のユーザーが更新中です');
   try {
-    return createReservation_(memberName, 'update', eventData);
+    return directUpdateEvent_(memberName, eventData);
   } finally {
     lock.releaseLock();
   }
 }
 
-function api_deleteEventReservation(memberName, eventId) {
+function api_deletePersonalEvent(memberName, eventId) {
   var lock = LockService.getDocumentLock();
   if (!lock.tryLock(15000)) throw new Error('他のユーザーが更新中です');
   try {
-    return createReservation_(memberName, 'delete', { event_id: eventId });
+    return directDeleteEvent_(memberName, eventId);
   } finally {
     lock.releaseLock();
   }
