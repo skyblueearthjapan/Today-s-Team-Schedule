@@ -600,7 +600,8 @@ body {
   color: #7a8ba5;
 }
 
-.board-field input {
+.board-field input,
+.board-field select {
   width: 100%;
   padding: 7px 10px;
   border: 1px solid var(--border);
@@ -612,13 +613,15 @@ body {
   font-family: inherit;
 }
 
-.board-field input:focus {
+.board-field input:focus,
+.board-field select:focus {
   outline: none;
   border-color: var(--primary-light);
   box-shadow: 0 0 0 2px rgba(92, 124, 186, 0.15);
 }
 
-.board-field input[type="time"] {
+.board-field input[type="time"],
+.board-field select {
   font-variant-numeric: tabular-nums;
 }
 
@@ -1275,6 +1278,7 @@ body {
 .form-field input[type="text"],
 .form-field input[type="date"],
 .form-field input[type="time"],
+.form-field select,
 .form-field textarea {
   width: 100%;
   padding: 10px 14px;

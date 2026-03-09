@@ -332,6 +332,7 @@ var EventModal = (function() {
     teamEvents: []
   };
 
+
   function open(dateStr, memberName) {
     state.isOpen = true;
     state.dateStr = dateStr;
@@ -537,6 +538,10 @@ var EventModal = (function() {
       badge.classList.add('badge-reservation');
     }
 
+    // 時刻セレクトを30分刻みで初期化
+    populateTimeSelect_(document.getElementById('formStartTime'));
+    populateTimeSelect_(document.getElementById('formEndTime'));
+
     var data = eventData || {};
     document.getElementById('formTitle').value = data.title || '';
     document.getElementById('formStartDate').value = data.start_date || state.dateStr || '';
@@ -735,6 +740,26 @@ var EventModal = (function() {
     deleteEvent: deleteEvent
   };
 })();
+
+// ========================================
+// 30分刻み時刻セレクト（共通ユーティリティ）
+// ========================================
+function populateTimeSelect_(selectEl) {
+  selectEl.innerHTML = '';
+  var emptyOpt = document.createElement('option');
+  emptyOpt.value = '';
+  emptyOpt.textContent = '--:--';
+  selectEl.appendChild(emptyOpt);
+  for (var h = 0; h < 24; h++) {
+    for (var m = 0; m < 60; m += 30) {
+      var val = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+      var opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = val;
+      selectEl.appendChild(opt);
+    }
+  }
+}
 
 // ========================================
 // Toast notification
@@ -1384,14 +1409,25 @@ var App = (function() {
     label.textContent = labelText;
     field.appendChild(label);
 
-    var input = document.createElement('input');
-    input.type = inputType;
-    input.name = fieldName;
-    input.value = value;
-    input.dataset.member = memberName;
-    input.dataset.field = fieldName;
+    var input;
+    if (inputType === 'time') {
+      // 30分刻みセレクト
+      input = document.createElement('select');
+      input.name = fieldName;
+      input.dataset.member = memberName;
+      input.dataset.field = fieldName;
+      populateTimeSelect_(input);
+      input.value = value;
+    } else {
+      input = document.createElement('input');
+      input.type = inputType;
+      input.name = fieldName;
+      input.value = value;
+      input.dataset.member = memberName;
+      input.dataset.field = fieldName;
+    }
 
-    // A+C+B: input event
+    // A+C+B: input/change event
     input.addEventListener('input', function(e) {
       SaveManager.onInputChange(date, memberName, fieldName, e.target.value);
     });
@@ -1400,12 +1436,14 @@ var App = (function() {
       SaveManager.onInputChange(date, memberName, fieldName, e.target.value);
     });
 
-    // Enter key -> manual save
-    input.addEventListener('keypress', function(e) {
-      if (e.key === 'Enter') {
-        SaveManager.manualSave();
-      }
-    });
+    // Enter key -> manual save (text inputs only)
+    if (inputType !== 'time') {
+      input.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          SaveManager.manualSave();
+        }
+      });
+    }
 
     field.appendChild(input);
     return field;
