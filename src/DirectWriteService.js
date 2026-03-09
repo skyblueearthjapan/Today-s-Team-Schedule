@@ -1,5 +1,6 @@
 /**
  * DirectWriteService.js - メンバーのAIカレンダーに直接書き込み
+ * 書き込み後、自身のDB_TeamScheduleも即座に同期
  */
 
 // AIカレンダー DB_Events カラム定義（19列）
@@ -44,6 +45,9 @@ function directCreateEvent_(memberName, eventData) {
     var lastRow = sheet.getLastRow();
     sheet.getRange(lastRow + 1, 1, 1, 19).setValues([newRow]);
 
+    // DB_TeamScheduleにも即反映
+    syncMemberToLocal_(memberName, member.ssid);
+
     return {
       success: true,
       event_id: eventId,
@@ -85,6 +89,9 @@ function directUpdateEvent_(memberName, eventData) {
         sheet.getRange(rowNum, DEST_EVENT_COLS.UPDATED_AT + 1).setValue(now);
         sheet.getRange(rowNum, DEST_EVENT_COLS.GCAL_SYNC_STATUS + 1).setValue('pending');
 
+        // DB_TeamScheduleにも即反映
+        syncMemberToLocal_(memberName, member.ssid);
+
         return { success: true, message: memberName + 'の予定を更新しました' };
       }
     }
@@ -117,6 +124,10 @@ function directDeleteEvent_(memberName, eventId) {
         var rowNum = i + 1;
         sheet.getRange(rowNum, DEST_EVENT_COLS.STATUS + 1).setValue('deleted');
         sheet.getRange(rowNum, DEST_EVENT_COLS.UPDATED_AT + 1).setValue(now);
+
+        // DB_TeamScheduleにも即反映
+        syncMemberToLocal_(memberName, member.ssid);
+
         return { success: true, message: '予定を削除しました' };
       }
     }
@@ -125,6 +136,51 @@ function directDeleteEvent_(memberName, eventId) {
   } catch (e) {
     Logger.log('directDeleteEvent_ error: ' + e.message);
     return { success: false, error: e.message };
+  }
+}
+
+/**
+ * 指定メンバーのAIカレンダーからDB_TeamScheduleに即同期
+ * （該当メンバー分のみ差し替え）
+ */
+function syncMemberToLocal_(memberName, ssid) {
+  try {
+    var settings = getSettings_();
+    var dbEventsSheetName = settings.dbEventsSheet || 'DB_Events';
+
+    // メンバーの最新イベントを読み取り
+    var events = readMemberEvents_(memberName, ssid, dbEventsSheetName);
+    var now = getCurrentDateTime_();
+    events.forEach(function(e) { e.synced_at = now; });
+
+    // DB_TeamScheduleから該当メンバーの行を削除して書き直す
+    var tsSheet = getSheet_(SHEET_NAMES.DB_TEAM_SCHEDULE);
+    var tsLastRow = tsSheet.getLastRow();
+
+    if (tsLastRow >= 3) {
+      var existingData = tsSheet.getRange(3, 1, tsLastRow - 2, 11).getValues();
+      // 下から削除（行番号ずれ防止）
+      for (var i = existingData.length - 1; i >= 0; i--) {
+        if (String(existingData[i][0]).trim() === memberName) {
+          tsSheet.deleteRow(i + 3);
+        }
+      }
+    }
+
+    // 新しいデータを追加
+    if (events.length > 0) {
+      var rows = events.map(function(e) {
+        return [
+          e.member_name, e.event_id, e.title,
+          e.start_date, e.end_date, e.start_time, e.end_time,
+          e.all_day ? 'TRUE' : 'FALSE', e.memo, e.color_key, e.synced_at
+        ];
+      });
+      var newLastRow = tsSheet.getLastRow();
+      tsSheet.getRange(newLastRow + 1, 1, rows.length, 11).setValues(rows);
+    }
+  } catch (e) {
+    Logger.log('syncMemberToLocal_ error: ' + e.message);
   }
 }
 
