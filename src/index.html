@@ -30,6 +30,14 @@
     </header>
     <div class="gold-line"></div>
 
+    <!-- Sync Bar -->
+    <div class="sync-bar" id="syncBar">
+      <span class="sync-bar-icon">↻</span>
+      <span class="sync-bar-text">メンバーのAIカレンダーと同期</span>
+      <span class="sync-bar-time" id="syncBarTime"></span>
+      <button class="sync-bar-btn" id="syncBarBtn" onclick="doSyncFromBar()">同期する</button>
+    </div>
+
     <!-- Tab Navigation -->
     <nav class="tab-nav">
       <button class="tab-btn active" data-tab="today">今日</button>

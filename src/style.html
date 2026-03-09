@@ -249,6 +249,66 @@ body {
 }
 
 /* ========================================
+   Sync Bar
+   ======================================== */
+.sync-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #e8edf5 0%, #d4dce8 100%);
+  border-bottom: 2px solid var(--primary-light);
+}
+
+.sync-bar-icon {
+  font-size: 18px;
+  color: var(--primary-dark);
+  animation: none;
+}
+
+.sync-bar.syncing .sync-bar-icon {
+  animation: spinSync 1s linear infinite;
+}
+
+.sync-bar-text {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary-dark);
+}
+
+.sync-bar-time {
+  font-size: 11px;
+  color: #7a8ba5;
+  white-space: nowrap;
+}
+
+.sync-bar-btn {
+  padding: 7px 20px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--primary-dark);
+  color: var(--white);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.sync-bar-btn:hover {
+  background: #1e3a6c;
+  transform: translateY(-1px);
+}
+
+.sync-bar-btn:disabled {
+  background: #a0b0c8;
+  cursor: default;
+  transform: none;
+}
+
+/* ========================================
    Tab Navigation
    ======================================== */
 .tab-nav {
