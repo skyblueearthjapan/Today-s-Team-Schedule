@@ -36,7 +36,7 @@ function api_getTodayView(dateStr) {
     };
   });
 
-  // Team events (from __TEAM__ pseudo-member or dedicated function)
+  // Team events (from _TEAM_ pseudo-member or dedicated function)
   var teamEvents = [];
   try {
     teamEvents = getTeamEventsForDate_TE_(dateStr) || [];

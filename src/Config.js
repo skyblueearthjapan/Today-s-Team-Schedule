@@ -43,7 +43,7 @@ var RQ_COLS = {
 };
 
 // Special member name for team-wide events
-var TEAM_MEMBER_NAME = '__TEAM__';
+var TEAM_MEMBER_NAME = '_TEAM_';
 
 var TIMEZONE = 'Asia/Tokyo';
 

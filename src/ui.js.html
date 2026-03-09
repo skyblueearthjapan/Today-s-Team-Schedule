@@ -1200,7 +1200,7 @@ var App = (function() {
       var teamCard = document.createElement('div');
       teamCard.className = 'member-card fade-in';
       teamCard.style.borderLeftColor = 'var(--gold-dark)';
-      teamCard.dataset.member = '__TEAM__';
+      teamCard.dataset.member = '_TEAM_';
 
       var teamHeader = document.createElement('div');
       teamHeader.className = 'member-card-header';
@@ -1588,12 +1588,12 @@ var App = (function() {
 
     // Team events row
     var hasTeamEvents = data.days.some(function(day) {
-      return day.events && day.events['__TEAM__'] && day.events['__TEAM__'].length > 0;
+      return day.events && day.events['_TEAM_'] && day.events['_TEAM_'].length > 0;
     });
     if (hasTeamEvents) {
       var trTeam = document.createElement('tr');
       trTeam.className = 'week-member-row';
-      trTeam.dataset.member = '__TEAM__';
+      trTeam.dataset.member = '_TEAM_';
 
       var tdTeamName = document.createElement('td');
       tdTeamName.className = 'member-name-cell';
@@ -1608,7 +1608,7 @@ var App = (function() {
         var td = document.createElement('td');
         if (day.date === today) td.classList.add('today-col');
 
-        var teamDayEvents = (day.events && day.events['__TEAM__']) ? day.events['__TEAM__'] : [];
+        var teamDayEvents = (day.events && day.events['_TEAM_']) ? day.events['_TEAM_'] : [];
         teamDayEvents.forEach(function(ev) {
           var evDiv = document.createElement('div');
           evDiv.className = 'week-event-item';
@@ -1818,7 +1818,7 @@ var App = (function() {
         dots.className = 'cal-dots';
 
         // Team event dot (gold star)
-        if (dayEvents['__TEAM__'] && dayEvents['__TEAM__'].length > 0) {
+        if (dayEvents['_TEAM_'] && dayEvents['_TEAM_'].length > 0) {
           var teamDot = document.createElement('div');
           teamDot.className = 'cal-dot';
           teamDot.style.background = 'var(--gold-dark)';
