@@ -72,6 +72,18 @@ function api_getWeekView(dateStr) {
   var endDate = Utilities.formatDate(sunday, TIMEZONE, 'yyyy-MM-dd');
 
   var events = getTeamEventsForRange_(startDate, endDate);
+
+  // チーム予定を明示的にマージ（SyncService内でのマージに加えて確実に反映）
+  try {
+    var teamEventsMap = getTeamEventsForRange_TE_(startDate, endDate);
+    Object.keys(teamEventsMap).forEach(function(dk) {
+      if (!events[dk]) events[dk] = {};
+      events[dk][TEAM_MEMBER_NAME] = teamEventsMap[dk];
+    });
+  } catch (e) {
+    Logger.log('api_getWeekView team events merge: ' + e.message);
+  }
+
   var board = getBoardDataForRange_(startDate, endDate);
   var settings = getSettings_();
 
@@ -106,6 +118,18 @@ function api_getMonthView(year, month) {
   var endDate = year + '-' + String(month).padStart(2, '0') + '-' + String(lastDay).padStart(2, '0');
 
   var events = getTeamEventsForRange_(startDate, endDate);
+
+  // チーム予定を明示的にマージ
+  try {
+    var teamEventsMap = getTeamEventsForRange_TE_(startDate, endDate);
+    Object.keys(teamEventsMap).forEach(function(dk) {
+      if (!events[dk]) events[dk] = {};
+      events[dk][TEAM_MEMBER_NAME] = teamEventsMap[dk];
+    });
+  } catch (e) {
+    Logger.log('api_getMonthView team events merge: ' + e.message);
+  }
+
   var settings = getSettings_();
 
   return {

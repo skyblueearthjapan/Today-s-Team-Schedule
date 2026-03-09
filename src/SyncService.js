@@ -265,9 +265,8 @@ function getTeamEventsForRange_(startDate, endDate) {
   try {
     var teamEventsMap = getTeamEventsForRange_TE_(startDate, endDate);
     Object.keys(teamEventsMap).forEach(function(dk) {
-      if (result[dk]) {
-        result[dk][TEAM_MEMBER_NAME] = teamEventsMap[dk];
-      }
+      if (!result[dk]) result[dk] = {};
+      result[dk][TEAM_MEMBER_NAME] = teamEventsMap[dk];
     });
   } catch (e) {
     Logger.log('Team events range merge error: ' + e.message);
