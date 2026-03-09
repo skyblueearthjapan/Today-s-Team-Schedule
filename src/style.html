@@ -830,10 +830,17 @@ body {
 }
 
 .cal-event-member {
-  background: rgba(92, 124, 186, 0.08);
+  background: color-mix(in srgb, var(--member-color, var(--primary-light)) 15%, white);
   color: var(--text);
   border-left: 2px solid var(--member-color, var(--primary-light));
 }
+
+/* color-mix非対応ブラウザ向けフォールバック */
+.cal-event-member.member-0 { background: rgba(44, 74, 124, 0.15); }
+.cal-event-member.member-1 { background: rgba(201, 168, 76, 0.15); }
+.cal-event-member.member-2 { background: rgba(212, 118, 154, 0.15); }
+.cal-event-member.member-3 { background: rgba(74, 140, 111, 0.15); }
+.cal-event-member.member-4 { background: rgba(139, 107, 181, 0.15); }
 
 /* Modal: member group header */
 .modal-member-group-header {
