@@ -36,9 +36,19 @@ function api_getTodayView(dateStr) {
     };
   });
 
+  // Team events (from __TEAM__ pseudo-member or dedicated function)
+  var teamEvents = [];
+  try {
+    teamEvents = getTeamEventsForDate_TE_(dateStr) || [];
+  } catch (e) {
+    Logger.log('getTeamEventsForDate_TE_ error: ' + e.message);
+    teamEvents = events[TEAM_MEMBER_NAME] || [];
+  }
+
   return {
     date: dateStr,
     members: members,
+    teamEvents: teamEvents,
     lastSyncAt: settings.lastSyncAt
   };
 }
@@ -128,4 +138,104 @@ function api_applyBoardPatch(dateStr, changes) {
  */
 function api_syncNow() {
   return syncAllMembers();
+}
+
+// ========================================
+// チーム全体予定API
+// ========================================
+
+function api_createTeamEvent(payload) {
+  var lock = LockService.getDocumentLock();
+  if (!lock.tryLock(15000)) throw new Error('他のユーザーが更新中です');
+  try {
+    return createTeamEvent_(payload);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function api_updateTeamEvent(payload) {
+  var lock = LockService.getDocumentLock();
+  if (!lock.tryLock(15000)) throw new Error('他のユーザーが更新中です');
+  try {
+    return updateTeamEvent_(payload);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function api_deleteTeamEvent(teamEventId) {
+  var lock = LockService.getDocumentLock();
+  if (!lock.tryLock(15000)) throw new Error('他のユーザーが更新中です');
+  try {
+    return deleteTeamEvent_(teamEventId);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ========================================
+// 個人予定予約API
+// ========================================
+
+function api_createEventReservation(memberName, eventData) {
+  var lock = LockService.getDocumentLock();
+  if (!lock.tryLock(15000)) throw new Error('他のユーザーが更新中です');
+  try {
+    return createReservation_(memberName, 'create', eventData);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function api_updateEventReservation(memberName, eventData) {
+  var lock = LockService.getDocumentLock();
+  if (!lock.tryLock(15000)) throw new Error('他のユーザーが更新中です');
+  try {
+    return createReservation_(memberName, 'update', eventData);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function api_deleteEventReservation(memberName, eventId) {
+  var lock = LockService.getDocumentLock();
+  if (!lock.tryLock(15000)) throw new Error('他のユーザーが更新中です');
+  try {
+    return createReservation_(memberName, 'delete', { event_id: eventId });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ========================================
+// モーダル用詳細取得API
+// ========================================
+
+function api_getDayDetail(dateStr, memberName) {
+  var result = {
+    date: dateStr,
+    personalEvents: [],
+    teamEvents: [],
+    board: { location: '', returnTime: '', notes: '' }
+  };
+
+  // Personal events for this member
+  if (memberName) {
+    var allEvents = getTeamEventsForDate_(dateStr);
+    result.personalEvents = allEvents[memberName] || [];
+
+    // Board data
+    var boardData = getBoardDataForDate_(dateStr);
+    result.board = boardData[memberName] || { location: '', returnTime: '', notes: '' };
+  }
+
+  // Team events
+  result.teamEvents = getTeamEventsForDate_TE_(dateStr);
+
+  return result;
+}
+
+function api_getTeamEventDetail(teamEventId) {
+  return getTeamEventById_(teamEventId);
 }

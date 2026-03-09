@@ -5,7 +5,9 @@
 var SHEET_NAMES = {
   SETTINGS: 'SETTINGS',
   DB_TEAM_SCHEDULE: 'DB_TeamSchedule',
-  BOARD: 'BOARD'
+  BOARD: 'BOARD',
+  DB_TEAM_EVENTS: 'DB_TeamEvents',
+  DB_RESERVATION_QUEUE: 'DB_ReservationQueue'
 };
 
 // DB_TeamSchedule column indices (0-indexed)
@@ -24,6 +26,24 @@ var SRC_EVENT_COLS = {
   EVENT_ID: 0, TITLE: 5, START_DATE: 6, END_DATE: 7, START_TIME: 8,
   END_TIME: 9, ALL_DAY: 10, MEMO: 11, STATUS: 12, COLOR_KEY: 14
 };
+
+// DB_TeamEvents column indices (0-indexed) - チーム全体予定
+var TE_COLS = {
+  TEAM_EVENT_ID: 0, CREATED_AT: 1, UPDATED_AT: 2, TITLE: 3,
+  START_DATE: 4, END_DATE: 5, START_TIME: 6, END_TIME: 7,
+  ALL_DAY: 8, MEMO: 9, COLOR_KEY: 10, STATUS: 11, CREATED_BY: 12
+};
+
+// DB_ReservationQueue column indices (0-indexed) - 予約キュー
+var RQ_COLS = {
+  RESERVATION_ID: 0, CREATED_AT: 1, MEMBER_NAME: 2, MEMBER_SSID: 3,
+  ACTION: 4, EVENT_ID: 5, TITLE: 6, START_DATE: 7, END_DATE: 8,
+  START_TIME: 9, END_TIME: 10, ALL_DAY: 11, MEMO: 12, COLOR_KEY: 13,
+  STATUS: 14, APPLIED_AT: 15, ERROR_MESSAGE: 16, REQUESTED_BY: 17
+};
+
+// Special member name for team-wide events
+var TEAM_MEMBER_NAME = '__TEAM__';
 
 var TIMEZONE = 'Asia/Tokyo';
 
@@ -81,7 +101,7 @@ function formatDateVal_(value) {
 function formatTimeVal_(value) {
   if (value == null || value === '') return '';
   if (value instanceof Date) {
-    return Utilities.formatDate(value, 'GMT', 'HH:mm');
+    return Utilities.formatDate(value, TIMEZONE, 'HH:mm');
   }
   var s = String(value).trim();
   if (!s) return '';
@@ -96,4 +116,21 @@ function isDateInRange_(target, start, end) {
 
 function getCurrentDateTime_() {
   return Utilities.formatDate(new Date(), TIMEZONE, 'yyyy-MM-dd HH:mm:ss');
+}
+
+function parseLocalDate_(dateStr) {
+  var parts = dateStr.split('-');
+  return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+}
+
+function newTeamEventId_() {
+  var now = Utilities.formatDate(new Date(), TIMEZONE, 'yyyyMMdd_HHmmss');
+  var rand = ('0000' + Math.floor(Math.random() * 10000)).slice(-4);
+  return 'tevt_' + now + '_' + rand;
+}
+
+function newReservationId_() {
+  var now = Utilities.formatDate(new Date(), TIMEZONE, 'yyyyMMdd_HHmmss');
+  var rand = ('0000' + Math.floor(Math.random() * 10000)).slice(-4);
+  return 'rsv_' + now + '_' + rand;
 }

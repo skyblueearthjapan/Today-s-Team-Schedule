@@ -317,6 +317,444 @@ var SaveManager = (function() {
 })();
 
 // ========================================
+// EventModal: 統一予定詳細・編集モーダル
+// ========================================
+var EventModal = (function() {
+  var state = {
+    isOpen: false,
+    dateStr: null,
+    memberName: null,
+    mode: 'list',
+    formMode: null,
+    formType: null,
+    editingEvent: null,
+    personalEvents: [],
+    teamEvents: []
+  };
+
+  function open(dateStr, memberName) {
+    state.isOpen = true;
+    state.dateStr = dateStr;
+    state.memberName = memberName;
+    state.mode = 'list';
+    state.editingEvent = null;
+
+    var modal = document.getElementById('eventModal');
+    modal.classList.remove('hidden');
+
+    document.getElementById('modalDate').textContent = Helpers.formatDisplayDate(dateStr);
+
+    var selectDiv = document.getElementById('modalMemberSelect');
+    if (!memberName) {
+      selectDiv.classList.remove('hidden');
+      populateMemberDropdown();
+      document.getElementById('modalMemberLabel').textContent = 'メンバーを選択してください';
+      document.getElementById('modalAddPersonal').classList.add('hidden');
+    } else {
+      selectDiv.classList.add('hidden');
+      document.getElementById('modalMemberLabel').textContent = memberName;
+      document.getElementById('modalAddPersonal').classList.remove('hidden');
+    }
+
+    showListView();
+    loadDetail();
+  }
+
+  function close() {
+    state.isOpen = false;
+    document.getElementById('eventModal').classList.add('hidden');
+  }
+
+  function handleOverlayClick(e) {
+    if (e.target.id === 'eventModal') {
+      close();
+    }
+  }
+
+  function populateMemberDropdown() {
+    var dropdown = document.getElementById('modalMemberDropdown');
+    dropdown.innerHTML = '<option value="">-- メンバーを選択 --</option>';
+
+    var appMembers = App.getMembers();
+    appMembers.forEach(function(m) {
+      var opt = document.createElement('option');
+      opt.value = m.name;
+      opt.textContent = m.name;
+      dropdown.appendChild(opt);
+    });
+  }
+
+  function onMemberChange() {
+    var dropdown = document.getElementById('modalMemberDropdown');
+    var name = dropdown.value;
+    if (name) {
+      state.memberName = name;
+      document.getElementById('modalMemberLabel').textContent = name;
+      document.getElementById('modalAddPersonal').classList.remove('hidden');
+      loadDetail();
+    }
+  }
+
+  function loadDetail() {
+    if (!state.dateStr) return;
+
+    showModalLoading(true);
+
+    google.script.run
+      .withSuccessHandler(function(data) {
+        showModalLoading(false);
+        if (data) {
+          state.personalEvents = data.personalEvents || [];
+          state.teamEvents = data.teamEvents || [];
+          renderEventList();
+        }
+      })
+      .withFailureHandler(function(err) {
+        showModalLoading(false);
+        console.error('getDayDetail error:', err);
+      })
+      .api_getDayDetail(state.dateStr, state.memberName || '');
+  }
+
+  function renderEventList() {
+    var teamListEl = document.getElementById('modalTeamEventList');
+    var personalListEl = document.getElementById('modalPersonalEventList');
+    var teamSection = document.getElementById('modalTeamEvents');
+    var personalSection = document.getElementById('modalPersonalEvents');
+    var emptyState = document.getElementById('modalEmptyState');
+
+    teamListEl.innerHTML = '';
+    personalListEl.innerHTML = '';
+
+    var hasTeam = state.teamEvents.length > 0;
+    var hasPersonal = state.personalEvents.length > 0;
+
+    teamSection.classList.toggle('hidden', !hasTeam);
+    state.teamEvents.forEach(function(ev) {
+      teamListEl.appendChild(createEventCard(ev, true));
+    });
+
+    personalSection.classList.toggle('hidden', !state.memberName);
+    if (hasPersonal) {
+      state.personalEvents.forEach(function(ev) {
+        personalListEl.appendChild(createEventCard(ev, false));
+      });
+    } else if (state.memberName) {
+      personalListEl.innerHTML = '<div class="event-modal-empty" style="padding:16px;">予定なし</div>';
+    }
+
+    emptyState.classList.toggle('hidden', hasTeam || hasPersonal || !!state.memberName);
+  }
+
+  function createEventCard(ev, isTeam) {
+    var card = document.createElement('div');
+    card.className = 'modal-event-card' + (isTeam ? ' team-event' : '');
+
+    var timeBlock = document.createElement('div');
+    timeBlock.className = 'modal-event-time-block';
+
+    if (ev.all_day) {
+      var badge = document.createElement('div');
+      badge.className = 'modal-event-allday-badge';
+      badge.textContent = '終日';
+      timeBlock.appendChild(badge);
+    } else if (ev.start_time) {
+      var timeMain = document.createElement('div');
+      timeMain.className = 'modal-event-time';
+      timeMain.textContent = ev.start_time.substring(0, 5);
+      timeBlock.appendChild(timeMain);
+
+      if (ev.end_time) {
+        var timeEnd = document.createElement('div');
+        timeEnd.className = 'modal-event-time-end';
+        timeEnd.textContent = ev.end_time.substring(0, 5);
+        timeBlock.appendChild(timeEnd);
+      }
+    }
+
+    card.appendChild(timeBlock);
+
+    var info = document.createElement('div');
+    info.className = 'modal-event-info';
+
+    var title = document.createElement('div');
+    title.className = 'modal-event-title';
+    title.textContent = ev.title || '(無題)';
+    info.appendChild(title);
+
+    if (ev.memo) {
+      var memo = document.createElement('div');
+      memo.className = 'modal-event-memo';
+      memo.textContent = ev.memo;
+      info.appendChild(memo);
+    }
+
+    card.appendChild(info);
+
+    var editIcon = document.createElement('div');
+    editIcon.className = 'modal-event-edit-icon';
+    editIcon.innerHTML = '&#9998;';
+    card.appendChild(editIcon);
+
+    card.addEventListener('click', function() {
+      if (isTeam) {
+        showForm('edit', 'team', ev);
+      } else {
+        showForm('edit', 'personal', ev);
+      }
+    });
+
+    return card;
+  }
+
+  function showForm(mode, type, eventData) {
+    state.mode = 'form';
+    state.formMode = mode;
+    state.formType = type;
+    state.editingEvent = eventData || null;
+
+    document.getElementById('modalListView').classList.add('hidden');
+    document.getElementById('modalFormView').classList.remove('hidden');
+
+    var formTitle = document.getElementById('modalFormTitle');
+    var badge = document.getElementById('modalFormBadge');
+    var deleteBtn = document.getElementById('formDeleteBtn');
+
+    if (mode === 'new') {
+      formTitle.textContent = type === 'team' ? 'チーム予定を追加' : '個人予定を追加';
+      deleteBtn.classList.add('hidden');
+    } else {
+      formTitle.textContent = type === 'team' ? 'チーム予定を編集' : '個人予定を編集';
+      deleteBtn.classList.remove('hidden');
+    }
+
+    badge.classList.remove('hidden', 'badge-personal', 'badge-team', 'badge-reservation');
+    if (type === 'team') {
+      badge.textContent = 'チーム';
+      badge.classList.add('badge-team');
+    } else {
+      badge.textContent = '予約';
+      badge.classList.add('badge-reservation');
+    }
+
+    var data = eventData || {};
+    document.getElementById('formTitle').value = data.title || '';
+    document.getElementById('formStartDate').value = data.start_date || state.dateStr || '';
+    document.getElementById('formEndDate').value = data.end_date || data.start_date || state.dateStr || '';
+    document.getElementById('formAllDay').checked = !!data.all_day;
+    document.getElementById('formStartTime').value = data.start_time || '';
+    document.getElementById('formEndTime').value = data.end_time || '';
+    document.getElementById('formMemo').value = data.memo || '';
+    document.getElementById('formError').classList.add('hidden');
+
+    toggleAllDay();
+
+    setTimeout(function() {
+      document.getElementById('formTitle').focus();
+    }, 100);
+  }
+
+  function hideForm() {
+    state.mode = 'list';
+    document.getElementById('modalFormView').classList.add('hidden');
+    document.getElementById('modalListView').classList.remove('hidden');
+  }
+
+  function showListView() {
+    document.getElementById('modalFormView').classList.add('hidden');
+    document.getElementById('modalListView').classList.remove('hidden');
+  }
+
+  function toggleAllDay() {
+    var isAllDay = document.getElementById('formAllDay').checked;
+    document.getElementById('formTimeFields').classList.toggle('hidden', isAllDay);
+  }
+
+  function save() {
+    var title = document.getElementById('formTitle').value.trim();
+    var startDate = document.getElementById('formStartDate').value;
+    var endDate = document.getElementById('formEndDate').value || startDate;
+    var allDay = document.getElementById('formAllDay').checked;
+    var startTime = allDay ? '' : document.getElementById('formStartTime').value;
+    var endTime = allDay ? '' : document.getElementById('formEndTime').value;
+    var memo = document.getElementById('formMemo').value.trim();
+
+    var errors = [];
+    if (!title) errors.push('タイトルは必須です');
+    if (title.length > 100) errors.push('タイトルは100文字以内');
+    if (!startDate) errors.push('開始日は必須です');
+    if (endDate && endDate < startDate) errors.push('終了日は開始日以降に');
+
+    if (errors.length > 0) {
+      var errEl = document.getElementById('formError');
+      errEl.textContent = errors.join(' / ');
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    document.getElementById('formError').classList.add('hidden');
+
+    var payload = {
+      title: title,
+      start_date: startDate,
+      end_date: endDate,
+      start_time: startTime,
+      end_time: endTime,
+      all_day: allDay,
+      memo: memo,
+      color_key: (state.editingEvent && state.editingEvent.color_key) || 'other'
+    };
+
+    if (state.formType === 'team') {
+      saveTeamEvent(payload);
+    } else {
+      savePersonalEvent(payload);
+    }
+  }
+
+  function saveTeamEvent(payload) {
+    showModalLoading(true);
+
+    if (state.formMode === 'edit' && state.editingEvent && state.editingEvent.team_event_id) {
+      payload.team_event_id = state.editingEvent.team_event_id;
+      google.script.run
+        .withSuccessHandler(onSaveSuccess)
+        .withFailureHandler(onSaveError)
+        .api_updateTeamEvent(payload);
+    } else {
+      google.script.run
+        .withSuccessHandler(onSaveSuccess)
+        .withFailureHandler(onSaveError)
+        .api_createTeamEvent(payload);
+    }
+  }
+
+  function savePersonalEvent(payload) {
+    if (!state.memberName) {
+      showToast('メンバーを選択してください', 'error');
+      return;
+    }
+
+    showModalLoading(true);
+
+    if (state.formMode === 'edit' && state.editingEvent && state.editingEvent.event_id) {
+      payload.event_id = state.editingEvent.event_id;
+      google.script.run
+        .withSuccessHandler(function(result) {
+          onSaveSuccess(result, true);
+        })
+        .withFailureHandler(onSaveError)
+        .api_updateEventReservation(state.memberName, payload);
+    } else {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          onSaveSuccess(result, true);
+        })
+        .withFailureHandler(onSaveError)
+        .api_createEventReservation(state.memberName, payload);
+    }
+  }
+
+  function deleteEvent() {
+    if (!state.editingEvent) return;
+
+    var title = state.editingEvent.title || '(無題)';
+    if (!confirm('「' + title + '」を削除しますか？')) return;
+
+    showModalLoading(true);
+
+    if (state.formType === 'team' && state.editingEvent.team_event_id) {
+      google.script.run
+        .withSuccessHandler(onSaveSuccess)
+        .withFailureHandler(onSaveError)
+        .api_deleteTeamEvent(state.editingEvent.team_event_id);
+    } else if (state.editingEvent.event_id && state.memberName) {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          onSaveSuccess(result, true);
+        })
+        .withFailureHandler(onSaveError)
+        .api_deleteEventReservation(state.memberName, state.editingEvent.event_id);
+    }
+  }
+
+  function onSaveSuccess(result, isReservation) {
+    showModalLoading(false);
+    if (result && result.success) {
+      if (isReservation) {
+        showToast(result.message || '予約を保存しました', 'reservation');
+      } else {
+        showToast(result.message || '保存しました', 'success');
+      }
+      close();
+      App.reloadCurrentTab();
+    } else {
+      var errMsg = (result && result.error) || '保存に失敗しました';
+      var errEl = document.getElementById('formError');
+      errEl.textContent = errMsg;
+      errEl.classList.remove('hidden');
+      state.mode = 'form';
+      document.getElementById('modalFormView').classList.remove('hidden');
+      document.getElementById('modalListView').classList.add('hidden');
+    }
+  }
+
+  function onSaveError(err) {
+    showModalLoading(false);
+    showToast('エラー: ' + (err.message || err), 'error');
+  }
+
+  function showModalLoading(show) {
+    var loadingEl = document.getElementById('modalLoading');
+    var listView = document.getElementById('modalListView');
+    var formView = document.getElementById('modalFormView');
+
+    if (show) {
+      loadingEl.classList.remove('hidden');
+      listView.classList.add('hidden');
+      formView.classList.add('hidden');
+    } else {
+      loadingEl.classList.add('hidden');
+      if (state.mode === 'form') {
+        formView.classList.remove('hidden');
+      } else {
+        listView.classList.remove('hidden');
+      }
+    }
+  }
+
+  return {
+    open: open,
+    close: close,
+    handleOverlayClick: handleOverlayClick,
+    onMemberChange: onMemberChange,
+    showForm: showForm,
+    hideForm: hideForm,
+    toggleAllDay: toggleAllDay,
+    save: save,
+    deleteEvent: deleteEvent
+  };
+})();
+
+// ========================================
+// Toast notification
+// ========================================
+function showToast(message, type) {
+  type = type || 'info';
+  var existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+
+  var toast = document.createElement('div');
+  toast.className = 'toast toast-' + type;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  setTimeout(function() {
+    if (toast.parentNode) toast.remove();
+  }, 3000);
+}
+
+// ========================================
 // Helpers
 // ========================================
 var Helpers = (function() {
@@ -708,6 +1146,84 @@ var App = (function() {
   function renderTodayView(data) {
     els.todayCards.innerHTML = '';
 
+    // Team events card
+    if (data.teamEvents && data.teamEvents.length > 0) {
+      var teamCard = document.createElement('div');
+      teamCard.className = 'member-card fade-in';
+      teamCard.style.borderLeftColor = 'var(--gold-dark)';
+      teamCard.dataset.member = '__TEAM__';
+
+      var teamHeader = document.createElement('div');
+      teamHeader.className = 'member-card-header';
+      teamHeader.style.background = 'linear-gradient(135deg, rgba(201,168,76,0.06) 0%, rgba(201,168,76,0.12) 100%)';
+
+      var teamBadge = document.createElement('div');
+      teamBadge.className = 'member-badge';
+      teamBadge.style.background = 'var(--gold-dark)';
+      teamBadge.textContent = '\u2605';
+      teamHeader.appendChild(teamBadge);
+
+      var teamName = document.createElement('div');
+      teamName.className = 'member-name';
+      teamName.textContent = '\u30C1\u30FC\u30E0\u4E88\u5B9A';
+      teamName.style.color = 'var(--gold-dark)';
+      teamHeader.appendChild(teamName);
+
+      teamCard.appendChild(teamHeader);
+
+      var teamEvSection = document.createElement('div');
+      teamEvSection.className = 'events-section';
+
+      data.teamEvents.forEach(function(ev) {
+        var item = document.createElement('div');
+        item.className = 'event-item';
+        item.style.borderLeftColor = 'var(--gold-dark)';
+        item.style.cursor = 'pointer';
+
+        if (ev.all_day) {
+          var badgeEl = document.createElement('span');
+          badgeEl.className = 'event-badge-allday';
+          badgeEl.textContent = '\u7D42\u65E5';
+          item.appendChild(badgeEl);
+        } else if (ev.start_time) {
+          var timeEl = document.createElement('span');
+          timeEl.className = 'event-time';
+          timeEl.textContent = ev.start_time.substring(0, 5) + (ev.end_time ? ' - ' + ev.end_time.substring(0, 5) : '');
+          item.appendChild(timeEl);
+        }
+
+        var titleEl = document.createElement('span');
+        titleEl.className = 'event-title';
+        titleEl.textContent = ev.title || '(\u7121\u984C)';
+        item.appendChild(titleEl);
+
+        (function(teamEv, dateForModal) {
+          item.addEventListener('click', function() {
+            EventModal.open(dateForModal, null);
+            setTimeout(function() { EventModal.showForm('edit', 'team', teamEv); }, 200);
+          });
+        })(ev, data.date || currentDate);
+
+        teamEvSection.appendChild(item);
+      });
+
+      // Add team event button
+      var addTeamBtn = document.createElement('div');
+      addTeamBtn.style.cssText = 'padding: 6px 0; text-align: center;';
+      var addTeamLink = document.createElement('button');
+      addTeamLink.style.cssText = 'border:none; background:none; color:var(--gold-dark); font-size:12px; font-weight:600; cursor:pointer; padding:4px 12px;';
+      addTeamLink.textContent = '+ \u30C1\u30FC\u30E0\u4E88\u5B9A\u3092\u8FFD\u52A0';
+      addTeamLink.addEventListener('click', function(e) {
+        e.stopPropagation();
+        EventModal.open(data.date || currentDate, null);
+      });
+      addTeamBtn.appendChild(addTeamLink);
+      teamEvSection.appendChild(addTeamBtn);
+
+      teamCard.appendChild(teamEvSection);
+      els.todayCards.appendChild(teamCard);
+    }
+
     if (!data.members || data.members.length === 0) {
       els.todayCards.innerHTML = '<div class="no-events" style="padding:24px;text-align:center;">メンバーが登録されていません</div>';
       return;
@@ -805,6 +1321,13 @@ var App = (function() {
           item.appendChild(memoEl);
         }
 
+        item.style.cursor = 'pointer';
+        (function(eventData) {
+          item.addEventListener('click', function() {
+            EventModal.open(date, member.name);
+          });
+        })(ev);
+
         eventsSection.appendChild(item);
       });
     } else if (member.hasCalendar) {
@@ -813,6 +1336,19 @@ var App = (function() {
       noEv.textContent = '予定なし';
       eventsSection.appendChild(noEv);
     }
+
+    // Add event button in today card
+    var addEvtBtn = document.createElement('div');
+    addEvtBtn.style.cssText = 'padding: 6px 0; text-align: center;';
+    var addLink = document.createElement('button');
+    addLink.style.cssText = 'border:none; background:none; color:var(--primary-light); font-size:12px; font-weight:600; cursor:pointer; padding:4px 12px;';
+    addLink.textContent = '+ 予定を追加';
+    addLink.addEventListener('click', function(e) {
+      e.stopPropagation();
+      EventModal.open(date, member.name);
+    });
+    addEvtBtn.appendChild(addLink);
+    eventsSection.appendChild(addEvtBtn);
 
     card.appendChild(eventsSection);
 
@@ -985,9 +1521,56 @@ var App = (function() {
     thead.appendChild(headerRow);
     table.appendChild(thead);
 
-    // Body rows (one per member)
+    // Body rows
     var tbody = document.createElement('tbody');
 
+    // Team events row
+    var hasTeamEvents = data.days.some(function(day) {
+      return day.events && day.events['__TEAM__'] && day.events['__TEAM__'].length > 0;
+    });
+    if (hasTeamEvents) {
+      var trTeam = document.createElement('tr');
+      trTeam.className = 'week-member-row';
+      trTeam.dataset.member = '__TEAM__';
+
+      var tdTeamName = document.createElement('td');
+      tdTeamName.className = 'member-name-cell';
+      tdTeamName.style.borderLeftColor = 'var(--gold-dark)';
+      tdTeamName.style.color = 'var(--gold-dark)';
+      tdTeamName.style.fontWeight = '700';
+      tdTeamName.textContent = '★ チーム';
+      tdTeamName.style.cursor = 'default';
+      trTeam.appendChild(tdTeamName);
+
+      data.days.forEach(function(day) {
+        var td = document.createElement('td');
+        if (day.date === today) td.classList.add('today-col');
+
+        var teamDayEvents = (day.events && day.events['__TEAM__']) ? day.events['__TEAM__'] : [];
+        teamDayEvents.forEach(function(ev) {
+          var evDiv = document.createElement('div');
+          evDiv.className = 'week-event-item';
+          evDiv.style.background = 'rgba(201,168,76,0.12)';
+          evDiv.style.color = 'var(--gold-dark)';
+          var prefix = ev.all_day ? '終日' : (ev.start_time ? ev.start_time.substring(0, 5) : '');
+          evDiv.textContent = (prefix ? prefix + ' ' : '') + (ev.title || '');
+          evDiv.title = (prefix ? prefix + ' ' : '') + (ev.title || '');
+          td.appendChild(evDiv);
+        });
+
+        (function(dayDate) {
+          td.addEventListener('click', function() {
+            EventModal.open(dayDate, null);
+          });
+        })(day.date);
+
+        trTeam.appendChild(td);
+      });
+
+      tbody.appendChild(trTeam);
+    }
+
+    // Member rows
     memberList.forEach(function(m, mi) {
       var tr = document.createElement('tr');
       tr.className = 'week-member-row';
@@ -1031,11 +1614,12 @@ var App = (function() {
           td.appendChild(boardDiv);
         }
 
-        // Click to navigate to day
-        td.addEventListener('click', function() {
-          currentDate = day.date;
-          switchTab('today');
-        });
+        // Click to open event modal
+        (function(dayDate, mName) {
+          td.addEventListener('click', function() {
+            EventModal.open(dayDate, mName);
+          });
+        })(day.date, m.name);
 
         tr.appendChild(td);
       });
@@ -1171,6 +1755,15 @@ var App = (function() {
         var dots = document.createElement('div');
         dots.className = 'cal-dots';
 
+        // Team event dot (gold star)
+        if (dayEvents['__TEAM__'] && dayEvents['__TEAM__'].length > 0) {
+          var teamDot = document.createElement('div');
+          teamDot.className = 'cal-dot';
+          teamDot.style.background = 'var(--gold-dark)';
+          teamDot.title = 'チーム予定';
+          dots.appendChild(teamDot);
+        }
+
         memberList.forEach(function(m) {
           if (dayEvents[m.name] && dayEvents[m.name].length > 0 && isMemberVisible(m.name)) {
             var idx = memberIndexMap[m.name] !== undefined ? memberIndexMap[m.name] : 0;
@@ -1184,11 +1777,10 @@ var App = (function() {
         td.appendChild(dots);
       }
 
-      // Click to navigate
+      // Click to open event modal
       (function(clickDate) {
         td.addEventListener('click', function() {
-          currentDate = clickDate;
-          switchTab('today');
+          EventModal.open(clickDate, null);
         });
       })(dateStr);
 
@@ -1291,7 +1883,13 @@ var App = (function() {
   return {
     init: init,
     getDate: function() { return currentDate; },
-    updateBoardFields: updateBoardFields
+    getMembers: function() { return members; },
+    updateBoardFields: updateBoardFields,
+    reloadCurrentTab: function() {
+      if (currentTab === 'today') loadTodayView();
+      else if (currentTab === 'week') loadWeekView();
+      else if (currentTab === 'month') loadMonthView();
+    }
   };
 })();
 

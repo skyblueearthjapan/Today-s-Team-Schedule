@@ -193,6 +193,16 @@ function getTeamEventsForDate_(dateStr) {
     });
   });
 
+  // Merge team-wide events
+  try {
+    var teamEvents = getTeamEventsForDate_TE_(dateStr);
+    if (teamEvents.length > 0) {
+      result[TEAM_MEMBER_NAME] = teamEvents;
+    }
+  } catch (e) {
+    Logger.log('Team events merge error: ' + e.message);
+  }
+
   return result;
 }
 
@@ -251,10 +261,19 @@ function getTeamEventsForRange_(startDate, endDate) {
     }
   });
 
+  // Merge team-wide events
+  try {
+    var teamEventsMap = getTeamEventsForRange_TE_(startDate, endDate);
+    Object.keys(teamEventsMap).forEach(function(dk) {
+      if (result[dk]) {
+        result[dk][TEAM_MEMBER_NAME] = teamEventsMap[dk];
+      }
+    });
+  } catch (e) {
+    Logger.log('Team events range merge error: ' + e.message);
+  }
+
   return result;
 }
 
-function parseLocalDate_(dateStr) {
-  var parts = dateStr.split('-');
-  return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-}
+// parseLocalDate_ は Config.js に移動済み

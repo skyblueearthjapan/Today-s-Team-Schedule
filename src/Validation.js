@@ -41,10 +41,50 @@ var Validation = (function() {
     return { valid: true, message: '' };
   }
 
+  function validateEventPayload(payload) {
+    var errors = [];
+
+    if (!payload.title || String(payload.title).trim() === '') {
+      errors.push('タイトルは必須です');
+    } else if (String(payload.title).length > 100) {
+      errors.push('タイトルは100文字以内にしてください');
+    }
+
+    if (!payload.start_date || !isValidDateFormat(payload.start_date)) {
+      errors.push('開始日が不正です（例: 2026-03-09）');
+    }
+
+    if (payload.end_date && !isValidDateFormat(payload.end_date)) {
+      errors.push('終了日が不正です');
+    }
+
+    if (payload.end_date && payload.start_date && payload.end_date < payload.start_date) {
+      errors.push('終了日は開始日以降にしてください');
+    }
+
+    if (payload.start_time && !isValidTimeFormat(payload.start_time)) {
+      errors.push('開始時刻が不正です（例: 14:00）');
+    }
+
+    if (payload.end_time && !isValidTimeFormat(payload.end_time)) {
+      errors.push('終了時刻が不正です');
+    }
+
+    if (payload.memo && String(payload.memo).length > 500) {
+      errors.push('メモは500文字以内にしてください');
+    }
+
+    if (errors.length > 0) {
+      return { valid: false, message: errors.join('\n') };
+    }
+    return { valid: true, message: '' };
+  }
+
   return {
     isValidDateFormat: isValidDateFormat,
     isValidTimeFormat: isValidTimeFormat,
     normalizeTime: normalizeTime,
-    validateBoardPayload: validateBoardPayload
+    validateBoardPayload: validateBoardPayload,
+    validateEventPayload: validateEventPayload
   };
 })();

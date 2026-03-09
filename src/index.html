@@ -81,6 +81,114 @@
       <div class="cal-grid" id="calGrid"></div>
     </div>
 
+    <!-- Event Detail & Edit Modal -->
+    <div id="eventModal" class="event-modal-overlay hidden" onclick="EventModal.handleOverlayClick(event)">
+      <div class="event-modal" onclick="event.stopPropagation()">
+        <div class="event-modal-header">
+          <div class="event-modal-header-info">
+            <div class="event-modal-date" id="modalDate"></div>
+            <div class="event-modal-member" id="modalMemberLabel"></div>
+          </div>
+          <button class="event-modal-close" onclick="EventModal.close()">&times;</button>
+        </div>
+
+        <!-- Member selector (shown when opened from calendar view without specific member) -->
+        <div id="modalMemberSelect" class="event-modal-member-select hidden">
+          <select id="modalMemberDropdown" onchange="EventModal.onMemberChange()"></select>
+        </div>
+
+        <!-- Event List View (default) -->
+        <div id="modalListView">
+          <!-- Team events section -->
+          <div id="modalTeamEvents" class="event-modal-section hidden">
+            <div class="event-modal-section-label">
+              <span class="section-icon">&#9733;</span> チーム予定
+            </div>
+            <div id="modalTeamEventList" class="event-modal-event-list"></div>
+          </div>
+
+          <!-- Personal events section -->
+          <div id="modalPersonalEvents" class="event-modal-section">
+            <div class="event-modal-section-label">
+              <span class="section-icon">&#128197;</span> 個人予定
+            </div>
+            <div id="modalPersonalEventList" class="event-modal-event-list"></div>
+          </div>
+
+          <!-- Empty state -->
+          <div id="modalEmptyState" class="event-modal-empty hidden">
+            予定がありません
+          </div>
+
+          <!-- Action buttons -->
+          <div class="event-modal-actions">
+            <button class="event-modal-add-btn" id="modalAddPersonal" onclick="EventModal.showForm('new', 'personal')">
+              + 個人予定を追加
+            </button>
+            <button class="event-modal-add-btn event-modal-add-team" id="modalAddTeam" onclick="EventModal.showForm('new', 'team')">
+              + チーム予定を追加
+            </button>
+          </div>
+        </div>
+
+        <!-- Edit Form View -->
+        <div id="modalFormView" class="hidden">
+          <div class="event-modal-form-header">
+            <button class="event-modal-back-btn" onclick="EventModal.hideForm()">&#8592; 戻る</button>
+            <span id="modalFormTitle">予定を追加</span>
+            <span id="modalFormBadge" class="event-modal-badge hidden"></span>
+          </div>
+          <div class="event-modal-form">
+            <div class="form-field">
+              <label for="formTitle">タイトル <span class="required">*</span></label>
+              <input type="text" id="formTitle" placeholder="予定のタイトル" maxlength="100">
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label for="formStartDate">開始日 <span class="required">*</span></label>
+                <input type="date" id="formStartDate">
+              </div>
+              <div class="form-field">
+                <label for="formEndDate">終了日</label>
+                <input type="date" id="formEndDate">
+              </div>
+            </div>
+            <div class="form-field">
+              <label class="checkbox-label">
+                <input type="checkbox" id="formAllDay" onchange="EventModal.toggleAllDay()"> 終日
+              </label>
+            </div>
+            <div id="formTimeFields" class="form-row">
+              <div class="form-field">
+                <label for="formStartTime">開始時刻</label>
+                <input type="time" id="formStartTime">
+              </div>
+              <div class="form-field">
+                <label for="formEndTime">終了時刻</label>
+                <input type="time" id="formEndTime">
+              </div>
+            </div>
+            <div class="form-field">
+              <label for="formMemo">メモ</label>
+              <textarea id="formMemo" rows="2" placeholder="メモ（任意）" maxlength="500"></textarea>
+            </div>
+            <div id="formError" class="form-error hidden"></div>
+            <div class="form-buttons">
+              <button class="form-btn form-btn-cancel" onclick="EventModal.hideForm()">キャンセル</button>
+              <button id="formDeleteBtn" class="form-btn form-btn-delete hidden" onclick="EventModal.deleteEvent()">削除</button>
+              <button class="form-btn form-btn-save" onclick="EventModal.save()">保存</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Loading state -->
+        <div id="modalLoading" class="event-modal-loading hidden">
+          <div class="spinner"></div>
+          <span>読み込み中...</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Footer -->
     <div class="app-footer">
       <span class="app-footer-gold">桜井電装</span> Team Schedule System

@@ -14,7 +14,13 @@ function setupTeamSchedule() {
   // 3. BOARD sheet
   createBoardSheet_(ss);
 
-  // 4. Daily trigger
+  // 4. DB_TeamEvents sheet
+  createDbTeamEventsSheet_(ss);
+
+  // 5. DB_ReservationQueue sheet
+  createReservationQueueSheet_(ss);
+
+  // 6. Daily trigger
   setupDailyTrigger();
 
   ss.toast('初期設定が完了しました。SETTINGSシートにメンバー情報を入力してください。', 'セットアップ完了', 10);
@@ -102,6 +108,51 @@ function createBoardSheet_(ss) {
 
   // Headers
   var headers = ['date', 'member_name', 'location', 'return_time', 'notes', 'updated_at'];
+  sheet.getRange(2, 1, 1, headers.length).setValues([headers]);
+  sheet.getRange(2, 1, 1, headers.length).setFontWeight('bold').setBackground('#2c4a7c').setFontColor('#ffffff');
+
+  // Freeze header rows
+  sheet.setFrozenRows(2);
+}
+
+function createDbTeamEventsSheet_(ss) {
+  var existing = ss.getSheetByName(SHEET_NAMES.DB_TEAM_EVENTS);
+  if (existing) {
+    Logger.log('DB_TeamEvents sheet already exists, skipping.');
+    return;
+  }
+
+  var sheet = ss.insertSheet(SHEET_NAMES.DB_TEAM_EVENTS);
+
+  // Title
+  sheet.getRange('A1').setValue('DB_TeamEvents').setFontWeight('bold').setFontSize(14);
+
+  // Headers
+  var headers = ['team_event_id', 'created_at', 'updated_at', 'title', 'start_date',
+                 'end_date', 'start_time', 'end_time', 'all_day', 'memo', 'color_key', 'status', 'created_by'];
+  sheet.getRange(2, 1, 1, headers.length).setValues([headers]);
+  sheet.getRange(2, 1, 1, headers.length).setFontWeight('bold').setBackground('#2c4a7c').setFontColor('#ffffff');
+
+  // Freeze header rows
+  sheet.setFrozenRows(2);
+}
+
+function createReservationQueueSheet_(ss) {
+  var existing = ss.getSheetByName(SHEET_NAMES.DB_RESERVATION_QUEUE);
+  if (existing) {
+    Logger.log('DB_ReservationQueue sheet already exists, skipping.');
+    return;
+  }
+
+  var sheet = ss.insertSheet(SHEET_NAMES.DB_RESERVATION_QUEUE);
+
+  // Title
+  sheet.getRange('A1').setValue('DB_ReservationQueue').setFontWeight('bold').setFontSize(14);
+
+  // Headers
+  var headers = ['reservation_id', 'created_at', 'member_name', 'member_ssid', 'action',
+                 'event_id', 'title', 'start_date', 'end_date', 'start_time', 'end_time',
+                 'all_day', 'memo', 'color_key', 'status', 'applied_at', 'error_message', 'requested_by'];
   sheet.getRange(2, 1, 1, headers.length).setValues([headers]);
   sheet.getRange(2, 1, 1, headers.length).setFontWeight('bold').setBackground('#2c4a7c').setFontColor('#ffffff');
 
