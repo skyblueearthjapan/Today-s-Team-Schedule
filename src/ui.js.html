@@ -1858,7 +1858,7 @@ var App = (function() {
               var evEl = document.createElement('div');
               evEl.className = 'cal-event-item cal-event-member member-' + idx;
               var prefix = ev.start_time ? ev.start_time.substring(0, 5) + ' ' : '';
-              evEl.textContent = prefix + (ev.title || '');
+              evEl.textContent = prefix + (ev.title || '') + ' (' + m.name + ')';
               evEl.title = m.name + ': ' + prefix + (ev.title || '');
               eventsContainer.appendChild(evEl);
             });
